@@ -68,4 +68,39 @@ const goToLogin = () => {
     justify-content: center;
     align-items: center;
 }
+
+@media (max-width: 1024px) {
+    .wallpaper {
+        max-width: 40%;
+    }
+
+    .register-form {
+        max-width: 60%;
+    }
+
+    .wallpaper img {
+        max-width: 60%;
+    }
+}
+
+@media (max-width: 768px) {
+    .register-view {
+        flex-direction: column;
+    }
+
+    .wallpaper {
+        max-width: 100%;
+        max-height: 15vh;
+
+        box-shadow: 0 3px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .wallpaper img {
+        max-height: 100%;
+    }
+
+    .register-form {
+        max-width: 100%;
+    }
+}
 </style>
