@@ -1,18 +1,40 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { ref } from "vue";
 
 import RegisterUserForm from "../components/molecules/RegisterUserForm.vue";
+import api from "../lib/api";
+import User from "../lib/api/models/User";
+import { toasterStore } from "../stores/toasterStore";
 
-import type { RegisterUser } from "../types/RegisterUser";
+const isLoading = ref(false);
 
 const router = useRouter();
 
-const handleRegister = (userData: RegisterUser) => {
-    // TODO: Implement registration logic
-};
-
 const goToLogin = () => {
     router.push({ name: "login" });
+};
+
+const registerUser = async (userData: User) => {
+    try {
+        isLoading.value = true;
+
+        await api.user.register(userData);
+
+        toasterStore.success(
+            "¡Registro exitoso!",
+            "Tu cuenta ha sido creada. Ahora inicia sesión.",
+        );
+
+        goToLogin();
+    } catch (error) {
+        toasterStore.error(
+            "Error en el registro",
+            "No se pudo crear la cuenta. Intenta nuevamente",
+        );
+    } finally {
+        isLoading.value = false;
+    }
 };
 </script>
 
@@ -23,7 +45,8 @@ const goToLogin = () => {
         </div>
         <div class="register-form">
             <RegisterUserForm
-                @register="handleRegister"
+                :isLoading="isLoading"
+                @register="registerUser"
                 @goToLogin="goToLogin"
             />
         </div>

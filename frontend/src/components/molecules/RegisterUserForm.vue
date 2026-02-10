@@ -8,20 +8,26 @@ import TextButton from "../atoms/TextButton.vue";
 
 import validateRegisterUserForm from "../../utils/validations/registerUserFormValidations";
 
+type Props = {
+    isLoading: boolean;
+};
+
+const props = defineProps<Props>();
+
 const formData = reactive({
-    name: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
-    confirmPassword: "",
+    confirm_password: "",
 });
 
 const errors = reactive({
-    name: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
-    confirmPassword: "",
+    confirm_password: "",
 });
 
 const emit = defineEmits(["register", "goToLogin"]);
@@ -60,24 +66,26 @@ const goToLogin = () => {
 
         <div class="form">
             <div class="form-input">
-                <label for="name">Nombre(s):</label>
+                <label for="firstName">Nombre(s):</label>
                 <InputAutoFocus
-                    v-model="formData.name"
-                    id="name"
+                    v-model="formData.first_name"
+                    id="firstName"
                     type="text"
                     placeholder="Nombre(s)"
-                    :errorMessage="errors.name"
+                    :errorMessage="errors.first_name"
+                    :disabled="props.isLoading"
                 />
             </div>
 
             <div class="form-input">
                 <label for="lastName">Apellidos:</label>
                 <Input
-                    v-model="formData.lastName"
+                    v-model="formData.last_name"
                     id="lastName"
                     type="text"
                     placeholder="Apellidos"
-                    :errorMessage="errors.lastName"
+                    :errorMessage="errors.last_name"
+                    :disabled="props.isLoading"
                 />
             </div>
 
@@ -89,6 +97,7 @@ const goToLogin = () => {
                     type="email"
                     placeholder="Correo electrónico"
                     :errorMessage="errors.email"
+                    :disabled="props.isLoading"
                 />
             </div>
 
@@ -100,17 +109,19 @@ const goToLogin = () => {
                     type="password"
                     placeholder="Contraseña"
                     :errorMessage="errors.password"
+                    :disabled="props.isLoading"
                 />
             </div>
 
             <div class="form-input">
                 <label for="confirmPassword">Confirmar contraseña:</label>
                 <Input
-                    v-model="formData.confirmPassword"
+                    v-model="formData.confirm_password"
                     id="confirmPassword"
                     type="password"
                     placeholder="Confirmar contraseña"
-                    :errorMessage="errors.confirmPassword"
+                    :errorMessage="errors.confirm_password"
+                    :disabled="props.isLoading"
                 />
             </div>
         </div>
@@ -119,16 +130,14 @@ const goToLogin = () => {
             <TextButton
                 variant="primary"
                 size="medium"
+                :disabled="props.isLoading"
                 @click="register"
-                @enterKeyDown="register"
             >
-                Registrarse
+                {{ props.isLoading ? "Registrando..." : "Registrarse" }}
             </TextButton>
             <div class="redirect-login">
                 ¿Ya tienes una cuenta?
-                <Link @click="goToLogin" @enterKeyDown="goToLogin">
-                    Inicia sesión
-                </Link>
+                <Link @click="goToLogin"> Inicia sesión </Link>
             </div>
         </div>
     </div>

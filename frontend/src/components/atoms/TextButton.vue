@@ -7,7 +7,7 @@ type Props = {
 
 const props = defineProps<Props>();
 
-const emit = defineEmits(["click", "enterKeyDown"]);
+const emit = defineEmits(["click"]);
 </script>
 
 <template>
@@ -16,7 +16,6 @@ const emit = defineEmits(["click", "enterKeyDown"]);
         :class="[props.variant, props.size]"
         :disabled="props.disabled"
         @click="$emit('click')"
-        @keydown.enter="$emit('enterKeyDown')"
     >
         <slot />
     </button>
