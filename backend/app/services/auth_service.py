@@ -1,12 +1,14 @@
 from supabase import Client
 from supabase_auth.errors import AuthApiError
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.profile_repository import ProfileRepository
 from app.models.schemas.user_schema import UserRegister
 import logging
 
 logger = logging.getLogger(__name__)
+
+INVALID_CREDENTIALS_MESSAGE = "Credenciales inválidas"
 
 
 class AuthService:
@@ -54,3 +56,29 @@ class AuthService:
             "message": "User registered successfully",
             "user_id": user_id
         }
+    
+    def login(self, email: str, password: str) -> dict:
+        try:
+            response = self.auth_repository.sign_in_with_password(email, password)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=INVALID_CREDENTIALS_MESSAGE,
+            )
+
+        session = getattr(response, "session", None)
+        user = getattr(response, "user", None)
+
+        if session is None or user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=INVALID_CREDENTIALS_MESSAGE,
+            )
+
+        return {
+            "access_token": session.access_token,
+            "refresh_token": session.refresh_token,
+            "user_id": user.id,
+            "email": user.email,
+        }
+
