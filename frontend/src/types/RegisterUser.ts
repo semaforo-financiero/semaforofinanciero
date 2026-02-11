@@ -1,9 +1,7 @@
-interface RegisterUser {
-    name: string;
-    lastName: string;
+export type RegisterUser = {
+    first_name: string;
+    last_name: string;
     email: string;
     password: string;
-    confirmPassword: string;
-}
-
-export type { RegisterUser };
+    confirm_password: string;
+};
