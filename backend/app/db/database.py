@@ -18,3 +18,4 @@ def get_supabase_client() -> Client:
         logger.exception("Error creating Supabase client")
         raise
 
+
