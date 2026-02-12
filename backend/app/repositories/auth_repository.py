@@ -21,3 +21,17 @@ class AuthRepository:
         except Exception:
             logger.exception("Unexpected error in register_user")
             raise
+
+    def sign_in_with_password(self, email: str, password: str):
+        try:
+            return self.supabase.auth.sign_in_with_password({                
+                "email": email, "password": password
+            })
+        except AuthApiError as e:
+            logger.warning(f"Supabase Auth error: {e}")
+            raise
+        except Exception:
+            logger.exception("Unexpected error in sign_in_with_password")
+            raise
+
+
