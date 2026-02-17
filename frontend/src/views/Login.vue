@@ -3,17 +3,48 @@ import { useRouter } from "vue-router";
 import { ref } from "vue";
 
 import LoginForm from "../components/molecules/LoginForm.vue";
+import api from "../lib/api";
+import { toasterStore } from "../stores/toasterStore";
+import { useAuthStore } from "../stores/authStore";
+
+import type User from "../lib/api/models/User";
 
 const isLoading = ref(false);
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const goToRegister = () => {
     router.push({ name: "register" });
 };
 
-const login = async (loginData: { email: string; password: string }) => {
-    // TODO: Implement login logic
+const login = async (loginData: User) => {
+    try {
+        isLoading.value = true;
+
+        const userLogged = await api.user.login(loginData);
+
+        authStore.login({
+            userId: userLogged.userId!,
+            email: userLogged.userEmail,
+            accessToken: userLogged.accessToken!,
+            refreshToken: userLogged.refreshToken!,
+        });
+
+        toasterStore.success(
+            "¡Inicio de sesión exitoso!",
+            "Has iniciado sesión correctamente.",
+        );
+
+        router.push({ name: "home" });
+    } catch (error) {
+        toasterStore.error(
+            "Error en el inicio de sesión",
+            "No se pudo iniciar sesión. Intenta nuevamente",
+        );
+    } finally {
+        isLoading.value = false;
+    }
 };
 </script>
 
