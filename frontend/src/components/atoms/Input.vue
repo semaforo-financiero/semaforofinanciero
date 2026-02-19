@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 type Props = {
     modelValue?: string | number;
     errorMessage?: string;
@@ -7,6 +9,8 @@ type Props = {
 const props = defineProps<Props>();
 
 const emit = defineEmits(["update:modelValue"]);
+
+const inputElement = ref<HTMLInputElement | null>(null);
 
 defineOptions({
     inheritAttrs: false,
@@ -17,10 +21,13 @@ const handleInput = (event: Event) => {
 
     emit("update:modelValue", target.value);
 };
+
+defineExpose({ inputElement });
 </script>
 
 <template>
     <input
+        ref="inputElement"
         v-bind="$attrs"
         class="input"
         :value="modelValue"
