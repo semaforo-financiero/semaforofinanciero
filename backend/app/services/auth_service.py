@@ -49,7 +49,6 @@ class AuthService:
                 self.auth_repository.delete_user(user_id)
             except Exception as rollback_error:
                 logger.critical(f"Rollback failed: {rollback_error}")
-            
             raise HTTPException(status_code=500, detail="Profile creation failed")
 
         return {
