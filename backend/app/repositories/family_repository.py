@@ -41,6 +41,7 @@ class FamilyRepository:
             )
         except Exception:
             logger.exception("Error inserting family member")
+            raise
 
     def find_member_by_user(self, user_id: str):
         try:
@@ -52,3 +53,54 @@ class FamilyRepository:
             )
         except Exception:
             logger.exception("Error finding user member")
+            raise
+        
+    def create_invitation(
+        self,
+        family_id: str,
+        invited_by: str,
+        invited_email: str,
+        token: str,
+        expires_at: str
+    ):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .insert({
+                    "family_id": family_id,
+                    "invited_by": invited_by,
+                    "invited_email": invited_email,
+                    "token": token,
+                    "expires_at": expires_at
+                })
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error inserting invitation")
+            raise
+    
+    def find_invitation_by_token(self, token: str):
+        try:
+            return (
+                self.supabase.table("family_invitations")
+                .select("*")
+                .eq("token", token)
+                .single()
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error finding invitation by token")
+            raise
+    
+    def update_invitation_status(self, token: str, status: str):
+        try:
+            return (
+                self.supabase.table("family_invitations")
+                .update({"status": status})
+                .eq("token", token)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error updating invitation status")
+            raise
