@@ -2,7 +2,7 @@
 import { ref } from "vue";
 
 type Props = {
-    modelValue?: string | number;
+    modelValue?: unknown;
     errorMessage?: string;
 };
 
