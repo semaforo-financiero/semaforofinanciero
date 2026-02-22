@@ -1,0 +1,43 @@
+const STATES_MX = {
+    AGUASCALIENTES: "Aguascalientes",
+    BAJA_CALIFORNIA: "Baja California",
+    BAJA_CALIFORNIA_SUR: "Baja California Sur",
+    CAMPECHE: "Campeche",
+    CHIAPAS: "Chiapas",
+    CHIHUAHUA: "Chihuahua",
+    COAHUILA: "Coahuila",
+    COLIMA: "Colima",
+    DURANGO: "Durango",
+    ESTADO_DE_MEXICO: "Estado de México",
+    GUANAJUATO: "Guanajuato",
+    GUERRERO: "Guerrero",
+    HIDALGO: "Hidalgo",
+    JALISCO: "Jalisco",
+    MICHOACAN: "Michoacán",
+    MORELOS: "Morelos",
+    NAYARIT: "Nayarit",
+    NUEVO_LEON: "Nuevo León",
+    OAXACA: "Oaxaca",
+    PUEBLA: "Puebla",
+    QUERETARO: "Querétaro",
+    QUINTANA_ROO: "Quintana Roo",
+    SAN_LUIS_POTOSI: "San Luis Potosí",
+    SINALOA: "Sinaloa",
+    SONORA: "Sonora",
+    TABASCO: "Tabasco",
+    TAMAULIPAS: "Tamaulipas",
+    TLAXCALA: "Tlaxcala",
+    VERACRUZ: "Veracruz",
+    YUCATAN: "Yucatán",
+    ZACATECAS: "Zacatecas",
+} as const;
+
+type StateMx = keyof typeof STATES_MX;
+
+const STATE_OPTIONS = Object.entries(STATES_MX).map(([key, value]) => ({
+    content: value,
+    value: key as StateMx,
+}));
+
+export { STATES_MX, STATE_OPTIONS };
+export type { StateMx };
