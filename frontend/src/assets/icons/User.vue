@@ -1,0 +1,16 @@
+<template>
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        fill="none"
+        viewBox="0 0 15 15"
+    >
+        <path
+            stroke="currentColor"
+            stroke-linecap="square"
+            d="M10.5 3.498a3 3 0 0 1-3 2.998 2.999 2.999 0 1 1 3-2.998Zm2 10.992h-10v-1.996a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3z"
+            clip-rule="evenodd"
+        />
+    </svg>
+</template>
