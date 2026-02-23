@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
+import { computed, onMounted } from "vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -9,6 +10,17 @@ const handleLogout = () => {
     authStore.logout();
     router.push({ name: "login" });
 };
+
+const hasProfile = computed(() => {
+    // TODO: Change this to check if the user has a profile when model (from gateway) is ready
+    return false;
+});
+
+onMounted(() => {
+    if (!hasProfile.value) {
+        router.push({ name: "profile" });
+    }
+});
 </script>
 
 <template>
