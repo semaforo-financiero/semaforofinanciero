@@ -3,7 +3,7 @@ import { computed, nextTick, ref, watch, type Component } from "vue";
 
 import Input from "./Input.vue";
 
-type ModelValue = string | number | boolean;
+type ModelValue = unknown;
 
 type Content = string | Component;
 
@@ -23,7 +23,7 @@ const props = defineProps<Props>();
 const emit = defineEmits(["update:modelValue"]);
 
 const isOpen = ref(false);
-const query = ref("");
+const query = ref(getLabelFromValue(props.modelValue));
 const inputRef = ref<{ inputElement: HTMLInputElement | null } | null>(null);
 const focusedIndex = ref(-1);
 const dropdownRef = ref<HTMLElement | null>(null);
@@ -39,6 +39,12 @@ const filteredOptions = computed(() => {
             : true,
     );
 });
+
+function getLabelFromValue(value: ModelValue): string {
+    const option = props.options.find((o) => o.value === value);
+
+    return option && typeof option.content === "string" ? option.content : "";
+}
 
 function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
@@ -112,12 +118,24 @@ function scrollToFocused() {
 }
 
 watch(isOpen, (val) => {
-    if (!val) focusedIndex.value = -1;
+    if (val) {
+        query.value = "";
+    } else {
+        focusedIndex.value = -1;
+        query.value = getLabelFromValue(props.modelValue);
+    }
 });
 
 watch(query, () => {
     focusedIndex.value = -1;
 });
+
+watch(
+    () => props.modelValue,
+    (val) => {
+        query.value = getLabelFromValue(val);
+    },
+);
 </script>
 
 <template>
