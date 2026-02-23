@@ -17,6 +17,19 @@ class FamilyRepository:
             logger.exception("Error inserting family")
             raise
     
+    def update_family(self, name: str, family_id: str):
+        try:
+            return (
+                self.supabase
+                .table("families")
+                .update({"name": name})
+                .eq("id", family_id)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error updating family")
+            raise
+    
     def delete_family(self, family_id: str):
         try:
             return (
