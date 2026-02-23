@@ -3,9 +3,8 @@ from supabase import Client
 from app.repositories.family_repository import FamilyRepository
 from app.repositories.profile_repository import ProfileRepository
 from app.models.schemas.family_schema import FamilyCreate
+from app.models.schemas.family_schema import FamilyUpdate
 from app.models.schemas.family_schema import FamilyInviteCreate
-import uuid
-from datetime import datetime, timedelta, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,6 +52,26 @@ class FamilyService:
 
         return {
             "message": "Family created successfully",
+            "family_id": family_id
+        }
+    
+    def update_family(self, user_id: str, family_data: FamilyUpdate):
+        member = self.family_repository.find_member_by_user(user_id)
+        if not member.data:
+            raise HTTPException(404, "User has no family")
+        
+        if member.data[0]["role"] != "admin":
+            raise HTTPException(403, "Only admin can edit family")
+        
+        family_id = member.data[0]["family_id"]
+
+        response = self.family_repository.update_family(family_data.name, family_id)
+        
+        if not response.data:
+            raise HTTPException(500, "Update failed")
+        
+        return {
+            "message": "Family updated",
             "family_id": family_id
         }
     
