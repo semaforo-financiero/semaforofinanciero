@@ -42,7 +42,8 @@ class AuthService:
             self.profile_repository.create_profile(
                 user_id=user_id,
                 first_name=user_data.first_name,
-                last_name=user_data.last_name
+                last_name=user_data.last_name,
+                email=user_data.email
             )
         except Exception as e:
             try:
