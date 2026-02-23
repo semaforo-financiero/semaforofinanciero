@@ -11,7 +11,7 @@ class ProfileRepository:
     def __init__(self, supabase: Client):
         self.supabase = supabase
 
-    def create_profile(self, user_id: str, first_name: str, last_name: str):
+    def create_profile(self, user_id: str, first_name: str, last_name: str, email: str):
         try:
             return (
                 self.supabase
@@ -19,13 +19,29 @@ class ProfileRepository:
                 .insert({
                     "id": user_id,
                     "first_name": first_name,
-                    "last_name": last_name
+                    "last_name": last_name,
+                    "email": email
                 })
                 .execute()
             )
         except Exception:
             logger.exception("Error inserting profile")
             raise
+    
+    def get_profile_by_email(self, email: str):
+        try:
+            return (
+                self.supabase
+                .table("profiles")
+                .select("*")
+                .eq("email", email)
+                .single()
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error getting profile by email")
+            raise
+
 
     def upsert_socioeconomic_profile(self, user_id: str, payload: dict) -> dict:
         data_to_save = {"id": user_id, **payload}
