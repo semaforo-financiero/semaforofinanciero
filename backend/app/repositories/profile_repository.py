@@ -24,3 +24,17 @@ class ProfileRepository:
             logger.exception("Error inserting profile")
             raise
 
+    def upsert_socioeconomic_profile(self, user_id: str, payload: dict) -> dict:
+        data_to_save = {"id": user_id, **payload}
+
+        response = (
+            self.supabase.table("socioeconomic_profiles")
+            .upsert(data_to_save)
+            .execute()
+        )
+
+        rows = getattr(response, "data", None) or []
+        if not rows:
+            return data_to_save
+
+        return rows[0]

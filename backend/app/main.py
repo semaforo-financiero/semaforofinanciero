@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.auth_route import router as auth_router
 from fastapi import APIRouter
+from app.routes.profile_route import router as profile_router
 
 app = FastAPI()
 
@@ -18,6 +19,8 @@ api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
 
 app.include_router(api_router)
+
+app.include_router(profile_router, prefix="/api")
 
 @app.get("/")
 def root():
