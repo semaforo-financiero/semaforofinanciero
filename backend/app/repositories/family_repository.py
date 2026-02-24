@@ -30,12 +30,22 @@ class FamilyRepository:
             logger.exception("Error updating family")
             raise
     
+    def get_family_by_user(self, user_id: str):
+        return (
+            self.supabase
+            .table("family_members")
+            .select("family_id, families(*)")
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
+    
     def delete_family(self, family_id: str):
         try:
             return (
-                self.supabase.table("familes")
+                self.supabase.table("families")
                 .delete()
-                .eq("family_id", family_id)
+                .eq("id", family_id)
                 .execute()
             )
         except Exception:
@@ -54,6 +64,19 @@ class FamilyRepository:
             )
         except Exception:
             logger.exception("Error inserting family member")
+            raise
+
+    def delete_family_member(self, user_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_members")
+                .delete()
+                .eq("user_id", user_id)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error deleting family member")
             raise
 
     def find_member_by_user(self, user_id: str):
