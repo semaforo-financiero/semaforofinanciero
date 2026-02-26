@@ -1,5 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class SocioeconomicProfileUpsertRequest(BaseModel):
@@ -21,3 +22,15 @@ class SocioeconomicProfileResponse(BaseModel):
     employment_status: str
     education_level: str
     job_title: str 
+
+
+class BasicProfileResponse(BaseModel):
+    id: str
+    first_name: str
+    last_name: str
+    email: str
+
+
+class ProfileResponse(BaseModel):
+    profile: BasicProfileResponse
+    socioeconomic_profile: Optional["SocioeconomicProfileResponse"] = None
