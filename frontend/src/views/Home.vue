@@ -1,14 +1,57 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
+import { onMounted, ref } from "vue";
+
+import api from "../lib/api";
+import { toasterStore } from "../stores/toasterStore";
+import type UserProfile from "../lib/api/models/UserProfile";
 
 const router = useRouter();
 const authStore = useAuthStore();
+const userProfile = ref<UserProfile | null>(null);
+const loadingProfile = ref(false);
 
 const handleLogout = () => {
     authStore.logout();
     router.push({ name: "login" });
 };
+
+const getProfile = async () => {
+    try {
+        loadingProfile.value = true;
+
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        userProfile.value = await api.profile.get(token);
+
+        const socioEconomicProfile = userProfile.value.socioeconomic_profile;
+
+        if (
+            !socioEconomicProfile ||
+            Object.values(socioEconomicProfile).some(
+                (value) => value === null || value === undefined,
+            )
+        ) {
+            router.push({ name: "profile" });
+        }
+    } catch (error) {
+        toasterStore.error(
+            "Error al cargar el perfil",
+            "Por favor inicia sesión nuevamente.",
+        );
+    } finally {
+        loadingProfile.value = false;
+    }
+};
+
+onMounted(() => {
+    getProfile();
+});
 </script>
 
 <template>

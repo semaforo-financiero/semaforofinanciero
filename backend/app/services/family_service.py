@@ -1,7 +1,11 @@
 from fastapi import HTTPException
 from supabase import Client
 from app.repositories.family_repository import FamilyRepository
+from app.repositories.profile_repository import ProfileRepository
 from app.models.schemas.family_schema import FamilyCreate
+from app.models.schemas.family_schema import FamilyInviteCreate
+import uuid
+from datetime import datetime, timedelta, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,6 +14,7 @@ class FamilyService:
 
     def __init__(self, supabase: Client):
         self.family_repository = FamilyRepository(supabase)
+        self.profile_repository = ProfileRepository(supabase)
 
     def create_family(self, user_id: str, family_data: FamilyCreate):
 
@@ -50,3 +55,92 @@ class FamilyService:
             "message": "Family created successfully",
             "family_id": family_id
         }
+    
+    def invite_member(self, user_id: str, invite_data: FamilyInviteCreate):
+
+        member = self.family_repository.find_member_by_user(user_id)
+
+        if not member.data:
+            raise HTTPException(400, "User has no family")
+
+        if member.data[0]["role"] != "admin":
+            raise HTTPException(403, "Only admin can invite")
+
+        family_id = member.data[0]["family_id"]
+
+        try:
+            invited = self.profile_repository.get_profile_by_email(invite_data.email)
+        except Exception:
+            raise HTTPException(404, "Invited user not registered")
+
+        invited_id = invited.data.get("id")
+
+        existing_member = self.family_repository.find_member_by_user(invited_id)
+        if existing_member.data:
+            raise HTTPException(400, "User already in family")
+
+        existing_inv = self.family_repository.find_pending_invitation(invited_id, family_id)
+        if existing_inv.data:
+            raise HTTPException(400, "Invitation already pending")
+
+        response = self.family_repository.create_invitation(
+            family_id=family_id,
+            invited_by=user_id,
+            invited_user_id=invited_id,
+            invited_email=invite_data.email
+        )
+
+        if not response.data:
+            raise HTTPException(500, "Invitation failed")
+
+        return {"message": "Invitation created", "family_id": family_id}
+
+    
+    def accept_invitation(self, user_id: str, family_id: str):
+
+        existing = self.family_repository.find_member_by_user(user_id)
+        if existing.data:
+            raise HTTPException(400, "User already in family")
+
+        invitation = self.family_repository.accept_pending_invitation(
+            user_id=user_id,
+            family_id=family_id
+        )
+
+        if not invitation.data:
+            raise HTTPException(404, "Pending invitation not found or already processed")
+
+        response = self.family_repository.add_family_member(
+            family_id=family_id,
+            user_id=user_id,
+            role="member"
+        )
+
+        if not response.data:
+            raise HTTPException(500, "Failed to join family")
+
+        return {"message": "Joined family", "family_id": family_id}
+    
+    def reject_invitation(self, user_id: str, family_id: str):
+
+        existing = self.family_repository.find_member_by_user(user_id)
+        if existing.data:
+            raise HTTPException(400, "User already in a family")
+
+        invitation = self.family_repository.reject_pending_invitation(
+            user_id=user_id,
+            family_id=family_id
+        )
+
+        if not invitation.data:
+            raise HTTPException(404, "Pending invitation not found or already processed")
+
+        return {"message": "Invitation rejected", "family_id": family_id}
+    
+    def list_user_invitations(self, user_id: str):
+        if not user_id:
+            raise HTTPException(401, "Invalid user")
+        response = self.family_repository.get_user_invitations(user_id)
+        return response.data if response.data else []
+
+
