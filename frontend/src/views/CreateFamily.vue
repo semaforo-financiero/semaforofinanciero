@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import api from "../lib/api";
+import { useAuthStore } from "../stores/authStore";
+import { toasterStore } from "../stores/toasterStore";
+import { useRouter } from "vue-router";
+
 import TwoPersons from "../assets/icons/TwoPersons.vue";
 import House from "../assets/icons/House.vue";
 import CurrencySimbol from "../assets/icons/CurrencySimbol.vue";
@@ -8,6 +13,9 @@ import Pulse from "../assets/icons/Pulse.vue";
 import Shield from "../assets/icons/Shield.vue";
 import PersonPlus from "../assets/icons/PersonPlus.vue";
 import Spinner from "../components/atoms/Spinner.vue";
+
+const authStore = useAuthStore();
+const router = useRouter();
 
 const familyName = ref("");
 const isLoading = ref(false);
@@ -17,11 +25,27 @@ const createFamily = async () => {
         return;
     }
 
-    isLoading.value = true;
-    // TODO: Implementar la lógica para crear una familia
-    setTimeout(() => {
+    try {
+        isLoading.value = true;
+
+        const token = authStore.getAccessToken();
+
+        await api.family.create(familyName.value.trim(), token || "");
+
+        toasterStore.success(
+            "Familia creada",
+            "La familia se ha creado correctamente.",
+        );
+
+        router.push({ name: "family" });
+    } catch (error) {
+        toasterStore.error(
+            "Error al crear la familia",
+            "Por favor intenta nuevamente.",
+        );
+    } finally {
         isLoading.value = false;
-    }, 2000);
+    }
 };
 </script>
 
