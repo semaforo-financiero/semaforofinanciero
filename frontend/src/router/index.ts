@@ -5,6 +5,8 @@ import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Home from "../views/Home.vue";
 import Profile from "../views/Profile.vue";
+import Family from "../views/Family.vue";
+import CreateFamily from "../views/CreateFamily.vue";
 
 const routes = [
     {
@@ -33,6 +35,18 @@ const routes = [
         path: "/profile",
         name: "profile",
         component: Profile,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/create-family",
+        name: "create-family",
+        component: CreateFamily,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/family",
+        name: "family",
+        component: Family,
         meta: { requiresAuth: true },
     },
 ];

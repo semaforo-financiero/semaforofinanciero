@@ -18,7 +18,7 @@ import Family from "../../assets/icons/Family.vue";
                 </li>
                 <li>
                     <span class="icon"><Family /></span>
-                    <router-link to="/settings">Familia</router-link>
+                    <router-link to="/family">Familia</router-link>
                 </li>
             </ul>
         </nav>
