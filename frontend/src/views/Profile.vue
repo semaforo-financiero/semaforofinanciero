@@ -3,15 +3,19 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import ProfileForm from "../components/molecules/ProfileForm.vue";
+import api from "../lib/api";
+import { useAuthStore } from "../stores/authStore";
+import { toasterStore } from "../stores/toasterStore";
 
 import type { StateMx } from "../types/State";
 import type { Gender } from "../types/Gender";
 import type { EducationLevel } from "../types/EducationLevel";
 import type { EmploymentStatus } from "../types/EmploymentStatus";
 import type { Job } from "../types/Job";
+import type UserProfile from "../lib/api/models/UserProfile";
 
-// TODO: Change this to a real user object when model (from gateway) is ready
-interface User {
+interface LocalUserProfile {
+    id: string;
     name: string;
     email: string;
     age: number | null;
@@ -24,31 +28,87 @@ interface User {
 }
 
 const router = useRouter();
+const authStore = useAuthStore();
 
-const user = ref<User>();
+const userProfile = ref<UserProfile | null>(null);
+const user = ref<LocalUserProfile | null>(null);
 
 const fetchUserData = async () => {
-    // TODO: Fetch user data from API when endpoint is ready
-    // and handle errors properly with toasterStore
-    user.value = {
-        name: "Manuel Rodriguez",
-        email: "manuel.rodriguez@example.com",
-        age: null,
-        gender: "MALE",
-        state: "ESTADO_DE_MEXICO",
-        antique: 5,
-        educationLevel: "BACHELOR",
-        employmentStatus: "EMPLOYED",
-        job: "TECHNOLOGY",
-    };
+    try {
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        userProfile.value = await api.profile.get(token);
+
+        user.value = {
+            id: userProfile.value.profile.id,
+            name: userProfile.value.profile.first_name,
+            email: userProfile.value.profile.email,
+            age: userProfile.value.socioeconomic_profile?.age || null,
+            gender: userProfile.value.socioeconomic_profile?.gender || null,
+            state: userProfile.value.socioeconomic_profile?.state || null,
+            antique:
+                userProfile.value.socioeconomic_profile?.years_working || null,
+            educationLevel:
+                userProfile.value.socioeconomic_profile?.education_level ||
+                null,
+            employmentStatus:
+                userProfile.value.socioeconomic_profile?.employment_status ||
+                null,
+            job: userProfile.value.socioeconomic_profile?.job_title || null,
+        };
+    } catch (error) {
+        toasterStore.error(
+            "Error al cargar el perfil",
+            "Por favor inicia sesión nuevamente.",
+        );
+    }
 };
 
 const cancel = () => {
     router.push({ name: "home" });
 };
 
-const submit = (updatedUser: User) => {
-    // TODO: Send updated user data to API when endpoint is ready
+const serializeUserProfile = (profile: LocalUserProfile) => {
+    return {
+        age: profile.age!,
+        gender: profile.gender!,
+        state: profile.state!,
+        years_working: profile.antique!,
+        education_level: profile.educationLevel!,
+        employment_status: profile.employmentStatus!,
+        job_title: profile.job!,
+    };
+};
+
+const submit = async (updatedUser: LocalUserProfile) => {
+    const token = authStore.getAccessToken();
+
+    if (!token) {
+        toasterStore.error(
+            "Error al actualizar el perfil",
+            "Por favor inicia sesión nuevamente.",
+        );
+
+        return;
+    }
+
+    try {
+        await api.profile.update(token, serializeUserProfile(updatedUser));
+
+        toasterStore.success(
+            "Perfil actualizado",
+            "Tu perfil ha sido actualizado correctamente.",
+        );
+    } catch (error) {
+        toasterStore.error(
+            "Error al actualizar el perfil",
+            "Por favor intenta nuevamente.",
+        );
+    }
 };
 
 onMounted(() => {
