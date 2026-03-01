@@ -17,12 +17,35 @@ class FamilyRepository:
             logger.exception("Error inserting family")
             raise
     
+    def update_family(self, name: str, family_id: str):
+        try:
+            return (
+                self.supabase
+                .table("families")
+                .update({"name": name})
+                .eq("id", family_id)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error updating family")
+            raise
+    
+    def get_family_by_user(self, user_id: str):
+        return (
+            self.supabase
+            .table("family_members")
+            .select("family_id, families(*)")
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
+    
     def delete_family(self, family_id: str):
         try:
             return (
-                self.supabase.table("familes")
+                self.supabase.table("families")
                 .delete()
-                .eq("family_id", family_id)
+                .eq("id", family_id)
                 .execute()
             )
         except Exception:
@@ -41,6 +64,20 @@ class FamilyRepository:
             )
         except Exception:
             logger.exception("Error inserting family member")
+            raise
+
+    def delete_family_member(self, user_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_members")
+                .delete()
+                .eq("user_id", user_id)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error deleting family member")
+            raise
 
     def find_member_by_user(self, user_id: str):
         try:
@@ -52,3 +89,85 @@ class FamilyRepository:
             )
         except Exception:
             logger.exception("Error finding user member")
+            raise
+        
+    def create_invitation(
+        self,
+        family_id: str,
+        invited_by: str,
+        invited_user_id: str,
+        invited_email: str
+    ):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .insert({
+                    "family_id": family_id,
+                    "invited_by": invited_by,
+                    "invited_user_id": invited_user_id,
+                    "invited_email": invited_email
+                })
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error inserting invitation")
+            raise
+
+    def find_pending_invitation(self, invited_user_id: str, family_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .select("*")
+                .eq("invited_user_id", invited_user_id)
+                .eq("family_id", family_id)
+                .eq("status", "pending")
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error finding pending invitation")
+            raise
+
+    def accept_pending_invitation(self, user_id: str, family_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .update({"status": "accepted"})
+                .eq("invited_user_id", user_id)
+                .eq("family_id", family_id)
+                .eq("status", "pending")
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error acepting pending invitation")
+            raise
+    
+    def reject_pending_invitation(self, user_id: str, family_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .update({"status": "rejected"})
+                .eq("invited_user_id", user_id)
+                .eq("family_id", family_id)
+                .eq("status", "pending")
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error rejecting pending invitation")
+            raise
+    
+    def get_user_invitations(self, user_id: str):
+        try:
+            return (
+                self.supabase
+                .table("family_invitations")
+                .select("*")
+                .eq("invited_user_id", user_id)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error getting user invitations")
+            raise

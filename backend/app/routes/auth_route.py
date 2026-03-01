@@ -4,7 +4,6 @@ from supabase import Client
 from app.db.database import get_supabase_client
 from app.services.auth_service import AuthService
 from app.models.schemas.user_schema import UserRegister
-from app.repositories.auth_repository import AuthRepository
 from app.models.schemas.user_schema import LoginRequest
 from app.models.schemas.user_schema import LoginResponse
 
