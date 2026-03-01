@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from supabase import Client
 from app.models.schemas.family_schema import FamilyCreate
+from app.models.schemas.family_schema import FamilyUpdate
 from app.models.schemas.family_schema import FamilyInviteCreate
 from app.models.schemas.family_schema import AcceptInvitation
 from app.models.schemas.family_schema import RejectInvitation
@@ -18,6 +19,15 @@ def create_family(
 ):
     service = FamilyService(supabase)
     return service.create_family(user_id, family_data)
+
+@router.put("/")
+def update_family(
+    family_data: FamilyUpdate,
+    supabase: Client = Depends(get_supabase_client),
+    user_id: str = Depends(get_current_user_id)
+):
+    service = FamilyService(supabase)
+    return service.update_family(user_id, family_data)
 
 @router.post("/invite")
 def invite_member(
