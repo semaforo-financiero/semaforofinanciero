@@ -4,6 +4,9 @@ import { useAuthStore } from "../stores/authStore";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Home from "../views/Home.vue";
+import Profile from "../views/Profile.vue";
+import Family from "../views/Family.vue";
+import CreateFamily from "../views/CreateFamily.vue";
 
 const routes = [
     {
@@ -28,6 +31,24 @@ const routes = [
         component: Home,
         meta: { requiresAuth: true },
     },
+    {
+        path: "/profile",
+        name: "profile",
+        component: Profile,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/create-family",
+        name: "create-family",
+        component: CreateFamily,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/family",
+        name: "family",
+        component: Family,
+        meta: { requiresAuth: true },
+    },
 ];
 
 const router = createRouter({
@@ -37,7 +58,7 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
-    
+
     if (!authStore.user) {
         authStore.loadSession();
     }
@@ -48,11 +69,9 @@ router.beforeEach((to, from, next) => {
 
     if (requiresAuth && !isAuthenticated) {
         next({ name: "login" });
-    }
-    else if (requiresGuest && isAuthenticated) {
+    } else if (requiresGuest && isAuthenticated) {
         next({ name: "home" });
-    }
-    else {
+    } else {
         next();
     }
 });

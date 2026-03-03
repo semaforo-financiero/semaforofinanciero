@@ -171,4 +171,3 @@ class FamilyRepository:
         except Exception:
             logger.exception("Error getting user invitations")
             raise
-
