@@ -104,15 +104,12 @@ class FamilyService:
     def get_family(self, user_id: str):
         if not user_id:
             raise HTTPException(401, "Invalid user")
-        
-        response = self.family_repository.get_family_by_user(user_id)
+        result = self.family_repository.get_family_by_user(user_id)
 
-        if not response.data:
+        if not result:
             raise HTTPException(404, "Family not found")
 
-        family = response.data["families"]
-
-        return family
+        return result
 
     
     def invite_member(self, user_id: str, invite_data: FamilyInviteCreate):
