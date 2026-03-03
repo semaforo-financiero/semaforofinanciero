@@ -5,6 +5,7 @@ from app.models.schemas.family_schema import FamilyUpdate
 from app.models.schemas.family_schema import FamilyInviteCreate
 from app.models.schemas.family_schema import AcceptInvitation
 from app.models.schemas.family_schema import RejectInvitation
+from app.models.schemas.family_schema import FamilyWithMembersResponse
 from app.services.family_service import FamilyService
 from app.db.database import get_supabase_client
 from app.core.security import get_current_user_id
