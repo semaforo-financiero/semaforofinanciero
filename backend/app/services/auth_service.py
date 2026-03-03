@@ -1,9 +1,9 @@
 from supabase import Client
 from supabase_auth.errors import AuthApiError
-from fastapi import HTTPException, status
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.profile_repository import ProfileRepository
 from app.models.schemas.user_schema import UserRegister
+from app.core.exceptions import UserAlreadyExists, AuthError, ProfileCreationError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,16 +25,27 @@ class AuthService:
                 password=user_data.password
             )
         except AuthApiError as e:
-            raise HTTPException(
-                status_code=e.status,
-                detail="User registration failed"
+            code = getattr(e, "code", None)
+            raw_msg = str(e)
+            msg = raw_msg.lower()
+
+            if code == "user_already_exists" or "already registered" in msg:
+                raise UserAlreadyExists(
+                    details={
+                        "provider": "supabase",
+                        "source_code": code,
+                        "email": user_data.email,
+                        "raw": raw_msg
+                    }
+                )
+
+            raise AuthError(
+                message="User registration failed",
+                details={"source_code": code, "raw": raw_msg}
             )
 
-        if not auth_response or not auth_response.user:
-            raise HTTPException(
-                status_code=400,
-                detail="User registration failed"
-            )
+        if not auth_response or not getattr(auth_response, "user", None):
+            raise AuthError(message="User registration failed")
 
         user_id = auth_response.user.id
 
@@ -50,7 +61,7 @@ class AuthService:
                 self.auth_repository.delete_user(user_id)
             except Exception as rollback_error:
                 logger.critical(f"Rollback failed: {rollback_error}")
-            raise HTTPException(status_code=500, detail="Profile creation failed")
+            raise ProfileCreationError()
 
         return {
             "message": "User registered successfully",
@@ -61,19 +72,13 @@ class AuthService:
         try:
             response = self.auth_repository.sign_in_with_password(email, password)
         except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=INVALID_CREDENTIALS_MESSAGE,
-            )
+            raise AuthError(message=INVALID_CREDENTIALS_MESSAGE)
 
         session = getattr(response, "session", None)
         user = getattr(response, "user", None)
 
         if session is None or user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=INVALID_CREDENTIALS_MESSAGE,
-            )
+            raise AuthError(message=INVALID_CREDENTIALS_MESSAGE)
 
         return {
             "access_token": session.access_token,
