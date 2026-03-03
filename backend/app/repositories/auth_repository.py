@@ -16,7 +16,7 @@ class AuthRepository:
                 "password": password,
             })
         except AuthApiError as e:
-            logger.warning(f"Supabase Auth error: {e}")
+            logger.warning(f"Supabase Auth error: {e} y su codigo: {e.code}")
             raise
         except Exception:
             logger.exception("Unexpected error in register_user")
