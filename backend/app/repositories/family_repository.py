@@ -31,14 +31,68 @@ class FamilyRepository:
             raise
     
     def get_family_by_user(self, user_id: str):
-        return (
-            self.supabase
-            .table("family_members")
-            .select("family_id, families(*)")
-            .eq("user_id", user_id)
-            .single()
-            .execute()
-        )
+        member_response = self.find_member_by_user(user_id)
+
+        if not member_response.data:
+            return None
+        
+        family_id = member_response.data[0]["family_id"]
+
+        try:
+            response = (
+                self.supabase
+                .table("families")
+                .select("""
+                    id, 
+                    name, 
+                    created_by, 
+                    created_at, 
+                    family_members(
+                        user_id, 
+                        role, 
+                        profiles!fk_family_members_profiles(
+                            first_name, 
+                            last_name, 
+                            email
+                        )
+                    )
+                """)
+                .eq("id", family_id)
+                .single()
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error getting family by user")
+            raise
+
+        data = response.data
+        if not data:
+            return None
+
+        family = data
+        raw_members = family.get("family_members") or []
+
+        members = [
+            {
+                "user_id": m.get("user_id"),
+                "role": m.get("role"),
+                "first_name": (m.get("profiles") or {}).get("first_name"),
+                "last_name": (m.get("profiles") or {}).get("last_name"),
+                "email": (m.get("profiles") or {}).get("email"),
+            }
+            for m in raw_members
+        ]
+
+
+        return {
+            "id": family.get("id"),
+            "name": family.get("name"),
+            "created_by": family.get("created_by"),
+            "created_at": family.get("created_at"),
+            "members": members,
+        }
+
+
     
     def delete_family(self, family_id: str):
         try:
