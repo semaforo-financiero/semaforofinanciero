@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 
 import api from "../lib/api";
 import { useAuthStore } from "../stores/authStore";
@@ -13,12 +13,14 @@ import Pulse from "../assets/icons/Pulse.vue";
 import Shield from "../assets/icons/Shield.vue";
 import PersonPlus from "../assets/icons/PersonPlus.vue";
 import Spinner from "../components/atoms/Spinner.vue";
+import type Invitation from "../lib/api/models/Invitation";
 
 const authStore = useAuthStore();
 const router = useRouter();
 
 const familyName = ref("");
 const isLoading = ref(false);
+const invitations = ref<Invitation[]>([]);
 
 const createFamily = async () => {
     if (!familyName.value.trim()) {
@@ -47,9 +49,49 @@ const createFamily = async () => {
         isLoading.value = false;
     }
 };
+
+const getInvitations = async () => {
+    try {
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        invitations.value = await api.invitation.getAll(token);
+    } catch (error) {
+        toasterStore.error(
+            "Error al cargar las invitaciones",
+            "No se pudieron obtener las invitaciones pendientes. Por favor intenta de nuevo mas tarde.",
+        );
+    }
+};
+
+onMounted(() => {
+    getInvitations();
+});
 </script>
 
 <template>
+    <div v-if="invitations.length > 0" class="invitations-container">
+        <ul class="invitations-list">
+            <li
+                v-for="invitation in invitations"
+                class="invitation-item"
+                :key="invitation.id"
+            >
+                <p>
+                    {{ invitation.invited_email }} te ha invitado a unirte a su
+                    familia
+                </p>
+                <div class="actions-invitation">
+                    <button class="accept-button" @click="">Aceptar</button>
+                    <button class="decline-button" @click="">Rechazar</button>
+                </div>
+            </li>
+        </ul>
+    </div>
+
     <div class="family-view">
         <div class="family-info">
             <div class="family-info__icon-wrapper">
@@ -482,5 +524,131 @@ const createFamily = async () => {
 
 .create-family__bar-segment--green {
     background: var(--primary-color, #43a047);
+}
+
+.invitations-container {
+    width: 100%;
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+}
+
+.invitations-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.invitation-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--color-white, #fff);
+    border-radius: 16px;
+    border: 2px solid var(--primary-color, #43a047);
+    border-left: 10px solid var(--primary-color, #43a047);
+    box-shadow:
+        0 2px 8px rgba(67, 160, 71, 0.1),
+        0 4px 16px rgba(0, 0, 0, 0.04);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.invitation-item:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 4px 12px rgba(67, 160, 71, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.invitation-item p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color, #212121);
+    line-height: 1.6;
+}
+
+.actions-invitation {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.accept-button,
+.decline-button {
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+.accept-button {
+    background: linear-gradient(
+        135deg,
+        var(--primary-color, #43a047),
+        var(--primary-color-dark, #388e3c)
+    );
+    color: var(--color-white, #fff);
+    box-shadow: 0 4px 12px rgba(67, 160, 71, 0.3);
+}
+
+.accept-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(67, 160, 71, 0.4);
+}
+
+.accept-button:active {
+    transform: translateY(0);
+}
+
+.decline-button {
+    background: var(--background-color, #f7f7f7);
+    color: var(--text-color, #212121);
+    border: 1.5px solid var(--color-gray-light, #dedede);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.decline-button:hover {
+    background: var(--color-white, #fff);
+    border-color: #c0c0c0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.decline-button:active {
+    transform: translateY(0);
+}
+
+@media (min-width: 768px) {
+    .invitation-item {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .invitation-item p {
+        flex: 1;
+        margin: 0;
+    }
+
+    .actions-invitation {
+        justify-content: flex-end;
+        flex-shrink: 0;
+    }
 }
 </style>

@@ -14,8 +14,10 @@ import PaperFly from "../assets/icons/PaperFly.vue";
 import Spinner from "../components/atoms/Spinner.vue";
 import Trash from "../assets/icons/Trash.vue";
 import PersonPlus from "../assets/icons/PersonPlus.vue";
+import { useRouter } from "vue-router";
 
 const authStore = useAuthStore();
+const router = useRouter();
 
 const family = ref<Family | null>(null);
 const isLoading = ref(true);
@@ -61,10 +63,7 @@ const fetchFamily = async () => {
 
         family.value = await api.family.getFamily(token);
     } catch (error) {
-        toasterStore.error(
-            "Error al cargar la familia",
-            "No se pudo obtener la informacion de tu familia. Por favor intenta de nuevo mas tarde.",
-        );
+        router.push({ name: "create-family" });
     } finally {
         isLoading.value = false;
     }
