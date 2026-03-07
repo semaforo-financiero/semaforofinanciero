@@ -38,7 +38,7 @@ def update_family(
     service = FamilyService(supabase)
     return service.update_family(user_id, family_data)
 
-@router.get("/")
+@router.get("/", response_model=FamilyWithMembersResponse)
 def get_family(
     supabase: Client = Depends(get_supabase_client),
     user_id: str = Depends(get_current_user_id)
