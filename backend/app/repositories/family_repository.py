@@ -218,10 +218,11 @@ class FamilyRepository:
             return (
                 self.supabase
                 .table("family_invitations")
-                .select("*")
+                .select("*, invited_by_email:profiles!family_invitations_invited_by_fkey(email)")
                 .eq("invited_user_id", user_id)
                 .execute()
             )
         except Exception:
             logger.exception("Error getting user invitations")
             raise
+

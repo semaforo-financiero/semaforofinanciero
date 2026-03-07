@@ -228,6 +228,12 @@ class FamilyService:
         if not user_id:
             raise HTTPException(401, "Invalid user")
         response = self.family_repository.get_user_invitations(user_id)
-        return response.data if response.data else []
+        invitations = response.data or []
+
+        for inv in invitations:
+            if inv.get("invited_by_email"):
+                inv["invited_by_email"] = inv["invited_by_email"]["email"]
+        
+        return invitations
 
 
