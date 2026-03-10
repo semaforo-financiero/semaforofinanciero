@@ -7,6 +7,7 @@ from app.routes.income_source_route import router as income_source_router
 from fastapi import APIRouter
 from app.core.exceptions import AppException
 from app.routes.profile_route import router as profile_router
+from app.routes.expense_source_route import router as expense_source_router
 
 app = FastAPI()
 
@@ -26,6 +27,7 @@ api_router.include_router(income_source_router)
 app.include_router(api_router)
 
 app.include_router(profile_router, prefix="/api")
+app.include_router(expense_source_router)
 
 @app.get("/")
 def root():
