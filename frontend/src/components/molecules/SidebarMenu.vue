@@ -2,6 +2,7 @@
 import User from "../../assets/icons/User.vue";
 import House from "../../assets/icons/House.vue";
 import Family from "../../assets/icons/Family.vue";
+import CashOnHand from "../../assets/icons/CashOnHand.vue";
 </script>
 
 <template>
@@ -19,6 +20,14 @@ import Family from "../../assets/icons/Family.vue";
                 <li>
                     <span class="icon"><Family /></span>
                     <router-link to="/family">Familia</router-link>
+                </li>
+                <li>
+                    <span class="icon"><CashOnHand /></span>
+                    <router-link to="/incomes">Ingresos</router-link>
+                </li>
+                <li>
+                    <span class="icon reverse"><CashOnHand /></span>
+                    <router-link to="/expenses">Egresos</router-link>
                 </li>
             </ul>
         </nav>
@@ -99,5 +108,9 @@ import Family from "../../assets/icons/Family.vue";
 
 .sidebar a:visited {
     color: var(--secondary-color-dark);
+}
+
+.reverse {
+    transform: scaleY(-1);
 }
 </style>
