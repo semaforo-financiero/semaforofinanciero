@@ -59,10 +59,72 @@ const getInvitations = async () => {
         }
 
         invitations.value = await api.invitation.getAll(token);
+
+        invitations.value = invitations.value.filter((invitation) => {
+            if (invitation.status === "pending") {
+                return true;
+            }
+
+            return false;
+        });
     } catch (error) {
         toasterStore.error(
             "Error al cargar las invitaciones",
             "No se pudieron obtener las invitaciones pendientes. Por favor intenta de nuevo mas tarde.",
+        );
+    }
+};
+
+const acceptInvitation = async (familyId: string) => {
+    try {
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        await api.invitation.accept(token, familyId);
+
+        invitations.value = invitations.value.filter(
+            (inv) => inv.family_id !== familyId,
+        );
+
+        router.push({ name: "family" });
+
+        toasterStore.success(
+            "Invitación aceptada",
+            "Has aceptado la invitación a la familia.",
+        );
+    } catch (error) {
+        toasterStore.error(
+            "Error al aceptar la invitación",
+            "No se pudo aceptar la invitación. Por favor intenta de nuevo mas tarde.",
+        );
+    }
+};
+
+const declineInvitation = async (familyId: string) => {
+    try {
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        await api.invitation.reject(token, familyId);
+
+        invitations.value = invitations.value.filter(
+            (inv) => inv.family_id !== familyId,
+        );
+
+        toasterStore.success(
+            "Invitación rechazada",
+            "Has rechazado la invitación a la familia.",
+        );
+    } catch (error) {
+        toasterStore.error(
+            "Error al rechazar la invitación",
+            "No se pudo rechazar la invitación. Por favor intenta de nuevo mas tarde.",
         );
     }
 };
@@ -81,12 +143,22 @@ onMounted(() => {
                 :key="invitation.id"
             >
                 <p>
-                    {{ invitation.invited_email }} te ha invitado a unirte a su
-                    familia
+                    {{ invitation.invited_by_email }} te ha invitado a unirte a
+                    su familia
                 </p>
                 <div class="actions-invitation">
-                    <button class="accept-button" @click="">Aceptar</button>
-                    <button class="decline-button" @click="">Rechazar</button>
+                    <button
+                        class="accept-button"
+                        @click="acceptInvitation(invitation.family_id)"
+                    >
+                        Aceptar
+                    </button>
+                    <button
+                        class="decline-button"
+                        @click="declineInvitation(invitation.family_id)"
+                    >
+                        Rechazar
+                    </button>
                 </div>
             </li>
         </ul>
