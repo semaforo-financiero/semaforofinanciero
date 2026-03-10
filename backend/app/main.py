@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.routes.auth_route import router as auth_router
 from app.routes.family_route import router as family_router
 from app.routes.income_source_route import router as income_source_router
+from app.routes.income_route import router as income_router
 from fastapi import APIRouter
 from app.core.exceptions import AppException
 from app.routes.profile_route import router as profile_router
@@ -24,6 +25,7 @@ api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
 api_router.include_router(family_router)
 api_router.include_router(income_source_router)
+api_router.include_router(income_router)
 app.include_router(api_router)
 
 app.include_router(profile_router, prefix="/api")

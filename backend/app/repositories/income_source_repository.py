@@ -1,4 +1,5 @@
 from supabase import Client
+from uuid import UUID
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,3 +72,12 @@ class IncomeSourceRepository:
         except Exception:
             logger.exception("Error deleting income source")
             raise
+    def find_income_source(self, income_source_id: UUID):
+        return (
+            self.supabase
+            .table("income_sources")
+            .select("*")
+            .eq("id", income_source_id)
+            .limit(1)
+            .execute()
+        )
