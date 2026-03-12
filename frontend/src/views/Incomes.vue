@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 
-interface Income {
-    id: string;
-    name: string;
-    type: "fixed" | "variable";
-    description: string;
-}
+import { toasterStore } from "../stores/toasterStore";
+import api from "../lib/api";
+import { useAuthStore } from "../stores/authStore";
+import type Income from "../lib/api/models/Income";
+import { STABILITY } from "../lib/api/models/Income";
+import CurrencySimbol from "../assets/icons/CurrencySimbol.vue";
+import Padlock from "../assets/icons/Padlock.vue";
+import Pulse from "../assets/icons/Pulse.vue";
+import Trash from "../assets/icons/Trash.vue";
+import Spinner from "../components/atoms/Spinner.vue";
+import PlusCircle from "../assets/icons/PlusCircle.vue";
+import Check from "../assets/icons/Check.vue";
 
 interface IncomeAmount {
     incomeId: string;
@@ -21,7 +27,8 @@ interface HistoricalRecord {
     filledAt: string;
 }
 
-// State
+const authStore = useAuthStore();
+
 const incomes = ref<Income[]>([]);
 const incomeAmounts = ref<IncomeAmount[]>([]);
 const historicalRecords = ref<HistoricalRecord[]>([]);
@@ -32,18 +39,12 @@ const isCreating = ref(false);
 const removingIncomeId = ref<string | null>(null);
 const isSavingAmounts = ref(false);
 
-// Form state
-const newIncome = ref({
+const newIncome = ref<Income>({
     name: "",
-    type: "fixed" as "fixed" | "variable",
+    stability: STABILITY.FIXED,
     description: "",
 });
 
-// Messages
-const errorMessage = ref("");
-const successMessage = ref("");
-
-// Current month/year
 const currentDate = new Date();
 const currentMonth = currentDate.getMonth();
 const currentYear = currentDate.getFullYear();
@@ -90,34 +91,18 @@ const setAmountForIncome = (incomeId: string, value: string) => {
     }
 };
 
-// Fetch data
 const fetchData = async () => {
     isLoading.value = true;
     try {
-        // TODO: Replace with actual API calls
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        const token = authStore.getAccessToken();
 
-        // Mock incomes
-        incomes.value = [
-            {
-                id: "1",
-                name: "Salario",
-                type: "fixed",
-                description: "Sueldo mensual de trabajo",
-            },
-            {
-                id: "2",
-                name: "Freelance",
-                type: "variable",
-                description: "Proyectos independientes",
-            },
-            {
-                id: "3",
-                name: "Inversiones",
-                type: "variable",
-                description: "Rendimientos de inversiones",
-            },
-        ];
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        incomes.value = await api.income.get(token);
+
+        incomes.value = incomes.value.filter((income) => income.is_active);
 
         // Mock current month amounts
         incomeAmounts.value = [
@@ -158,67 +143,91 @@ const fetchData = async () => {
             },
         ];
     } catch (error) {
-        errorMessage.value = "Error al cargar los datos.";
+        toasterStore.error(
+            "Error innesperado.",
+            "No se pudieron cargar los ingresos. Intenta de nuevo más tarde.",
+        );
     } finally {
         isLoading.value = false;
     }
 };
 
-// Create income
 const createIncome = async () => {
-    if (!newIncome.value.name.trim()) return;
+    if (!newIncome.value.name.trim()) {
+        return;
+    }
+
     isCreating.value = true;
-    errorMessage.value = "";
 
     try {
-        // TODO: Replace with actual API call
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
 
         const created: Income = {
-            id: String(Date.now()),
             name: newIncome.value.name,
-            type: newIncome.value.type,
+            stability: newIncome.value.stability,
             description: newIncome.value.description,
         };
 
-        incomes.value.push(created);
-        incomeAmounts.value.push({ incomeId: created.id, amount: null });
+        const incomeIdCreated = await api.income.create(created, token);
 
-        // Reset form
-        newIncome.value = { name: "", type: "fixed", description: "" };
+        created.id = incomeIdCreated;
+        incomes.value.push(created);
+
+        incomeAmounts.value.push({ incomeId: incomeIdCreated, amount: null });
+
+        newIncome.value = {
+            name: "",
+            stability: STABILITY.FIXED,
+            description: "",
+        };
+
         showCreateForm.value = false;
 
-        successMessage.value = "Ingreso creado exitosamente.";
-        setTimeout(() => {
-            successMessage.value = "";
-        }, 4000);
+        toasterStore.success(
+            "Ingreso creado",
+            `El ingreso "${created.name}" ha sido creado.`,
+        );
     } catch (error) {
-        errorMessage.value = "Error al crear el ingreso.";
+        toasterStore.error(
+            "Error al crear el ingreso.",
+            "No se pudo crear el ingreso. Intenta de nuevo más tarde.",
+        );
     } finally {
         isCreating.value = false;
     }
 };
 
-// Remove income
 const removeIncome = async (income: Income) => {
-    removingIncomeId.value = income.id;
-    errorMessage.value = "";
+    removingIncomeId.value = income.id!;
 
     try {
-        // TODO: Replace with actual API call
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        await api.income.delete(income.id!, token);
 
         incomes.value = incomes.value.filter((i) => i.id !== income.id);
+
         incomeAmounts.value = incomeAmounts.value.filter(
             (a) => a.incomeId !== income.id,
         );
 
-        successMessage.value = `"${income.name}" eliminado.`;
-        setTimeout(() => {
-            successMessage.value = "";
-        }, 4000);
+        toasterStore.success(
+            "Ingreso eliminado",
+            `El ingreso "${income.name}" ha sido eliminado.`,
+        );
     } catch (error) {
-        errorMessage.value = "Error al eliminar el ingreso.";
+        toasterStore.error(
+            "Error al eliminar el ingreso.",
+            "No se pudo eliminar el ingreso. Intenta de nuevo más tarde.",
+        );
     } finally {
         removingIncomeId.value = null;
     }
@@ -227,18 +236,20 @@ const removeIncome = async (income: Income) => {
 // Save amounts
 const saveAmounts = async () => {
     isSavingAmounts.value = true;
-    errorMessage.value = "";
 
     try {
         // TODO: Replace with actual API call
         await new Promise((resolve) => setTimeout(resolve, 800));
 
-        successMessage.value = "Montos guardados exitosamente.";
-        setTimeout(() => {
-            successMessage.value = "";
-        }, 4000);
+        toasterStore.success(
+            "Montos guardados",
+            "Los montos de ingresos han sido actualizados.",
+        );
     } catch (error) {
-        errorMessage.value = "Error al guardar los montos.";
+        toasterStore.error(
+            "Error al guardar los montos.",
+            "No se pudieron guardar los montos. Intenta de nuevo más tarde.",
+        );
     } finally {
         isSavingAmounts.value = false;
     }
@@ -263,109 +274,34 @@ onMounted(() => {
 
 <template>
     <div class="incomes-view">
-        <!-- Alerts -->
-        <Transition name="alert">
-            <div v-if="successMessage" class="alert alert--success">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    width="18"
-                    height="18"
-                >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                <span>{{ successMessage }}</span>
-            </div>
-        </Transition>
-        <Transition name="alert">
-            <div v-if="errorMessage" class="alert alert--error">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    width="18"
-                    height="18"
-                >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-                <span>{{ errorMessage }}</span>
-                <button class="alert__close" @click="errorMessage = ''">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        width="14"
-                        height="14"
-                    >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                </button>
-            </div>
-        </Transition>
-
-        <!-- Loading -->
         <template v-if="isLoading">
             <div class="incomes-grid">
                 <div class="skeleton-card">
                     <div class="skeleton skeleton--title"></div>
                     <div
-                        class="skeleton skeleton--item"
                         v-for="i in 3"
+                        class="skeleton skeleton--item"
                         :key="i"
                     ></div>
                 </div>
                 <div class="skeleton-card">
                     <div class="skeleton skeleton--title"></div>
                     <div
-                        class="skeleton skeleton--item"
                         v-for="i in 3"
+                        class="skeleton skeleton--item"
                         :key="i"
                     ></div>
                 </div>
             </div>
         </template>
 
-        <!-- Main Content -->
         <template v-else>
             <div class="incomes-grid">
-                <!-- LEFT PANEL: Income Management -->
                 <div class="panel panel--left">
                     <div class="panel__header">
                         <div class="panel__header-left">
                             <div class="panel__icon panel__icon--primary">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    width="22"
-                                    height="22"
-                                >
-                                    <line x1="12" y1="1" x2="12" y2="23" />
-                                    <path
-                                        d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
-                                    />
-                                </svg>
+                                <CurrencySimbol />
                             </div>
                             <div>
                                 <h2 class="panel__title">Ingresos</h2>
@@ -376,7 +312,6 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <!-- Income List -->
                     <div v-if="incomes.length > 0" class="income-list">
                         <TransitionGroup name="income">
                             <div
@@ -392,51 +327,18 @@ onMounted(() => {
                                     <div
                                         class="income-item__icon"
                                         :class="
-                                            income.type === 'fixed'
+                                            income.stability === STABILITY.FIXED
                                                 ? 'income-item__icon--fixed'
                                                 : 'income-item__icon--variable'
                                         "
                                     >
-                                        <svg
-                                            v-if="income.type === 'fixed'"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            width="18"
-                                            height="18"
-                                        >
-                                            <rect
-                                                x="3"
-                                                y="11"
-                                                width="18"
-                                                height="11"
-                                                rx="2"
-                                                ry="2"
-                                            />
-                                            <path
-                                                d="M7 11V7a5 5 0 0 1 10 0v4"
-                                            />
-                                        </svg>
-                                        <svg
-                                            v-else
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            width="18"
-                                            height="18"
-                                        >
-                                            <polyline
-                                                points="22 12 18 12 15 21 9 3 6 12 2 12"
-                                            />
-                                        </svg>
+                                        <Padlock
+                                            v-if="
+                                                income.stability ===
+                                                STABILITY.FIXED
+                                            "
+                                        />
+                                        <Pulse v-else />
                                     </div>
                                     <div class="income-item__info">
                                         <div class="income-item__name-row">
@@ -446,13 +348,15 @@ onMounted(() => {
                                             <span
                                                 class="income-item__badge"
                                                 :class="
-                                                    income.type === 'fixed'
+                                                    income.stability ===
+                                                    STABILITY.FIXED
                                                         ? 'income-item__badge--fixed'
                                                         : 'income-item__badge--variable'
                                                 "
                                             >
                                                 {{
-                                                    income.type === "fixed"
+                                                    income.stability ===
+                                                    STABILITY.FIXED
                                                         ? "Fijo"
                                                         : "Variable"
                                                 }}
@@ -473,66 +377,17 @@ onMounted(() => {
                                     @click="removeIncome(income)"
                                     :title="`Eliminar ${income.name}`"
                                 >
-                                    <svg
+                                    <Trash
                                         v-if="removingIncomeId !== income.id"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        width="16"
-                                        height="16"
-                                    >
-                                        <polyline points="3 6 5 6 21 6" />
-                                        <path
-                                            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                                        />
-                                    </svg>
-                                    <svg
-                                        v-else
-                                        class="spinner"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        width="16"
-                                        height="16"
-                                    >
-                                        <circle
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke-dasharray="30 70"
-                                        />
-                                    </svg>
+                                    />
+                                    <Spinner v-else />
                                 </button>
                             </div>
                         </TransitionGroup>
                     </div>
 
-                    <!-- Empty State -->
                     <div v-else-if="!showCreateForm" class="empty-state">
-                        <div class="empty-state__icon">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                width="36"
-                                height="36"
-                            >
-                                <line x1="12" y1="1" x2="12" y2="23" />
-                                <path
-                                    d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
-                                />
-                            </svg>
-                        </div>
+                        <div class="empty-state__icon"><CurrencySimbol /></div>
                         <p class="empty-state__text">
                             No hay ingresos registrados
                         </p>
@@ -541,25 +396,10 @@ onMounted(() => {
                         </p>
                     </div>
 
-                    <!-- Create Form -->
                     <Transition name="slide">
                         <div v-if="showCreateForm" class="create-form">
                             <div class="create-form__header">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    width="18"
-                                    height="18"
-                                >
-                                    <circle cx="12" cy="12" r="10" />
-                                    <line x1="12" y1="8" x2="12" y2="16" />
-                                    <line x1="8" y1="12" x2="16" y2="12" />
-                                </svg>
+                                <PlusCircle />
                                 <span>Nuevo ingreso</span>
                             </div>
 
@@ -585,33 +425,15 @@ onMounted(() => {
                                         class="create-form__type-btn"
                                         :class="{
                                             'create-form__type-btn--active':
-                                                newIncome.type === 'fixed',
+                                                newIncome.stability ===
+                                                STABILITY.FIXED,
                                         }"
-                                        @click="newIncome.type = 'fixed'"
+                                        @click="
+                                            newIncome.stability =
+                                                STABILITY.FIXED
+                                        "
                                     >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            width="16"
-                                            height="16"
-                                        >
-                                            <rect
-                                                x="3"
-                                                y="11"
-                                                width="18"
-                                                height="11"
-                                                rx="2"
-                                                ry="2"
-                                            />
-                                            <path
-                                                d="M7 11V7a5 5 0 0 1 10 0v4"
-                                            />
-                                        </svg>
+                                        <Padlock />
                                         Fijo
                                     </button>
                                     <button
@@ -619,25 +441,15 @@ onMounted(() => {
                                         class="create-form__type-btn"
                                         :class="{
                                             'create-form__type-btn--active':
-                                                newIncome.type === 'variable',
+                                                newIncome.stability ===
+                                                STABILITY.VARIABLE,
                                         }"
-                                        @click="newIncome.type = 'variable'"
+                                        @click="
+                                            newIncome.stability =
+                                                STABILITY.VARIABLE
+                                        "
                                     >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            width="16"
-                                            height="16"
-                                        >
-                                            <polyline
-                                                points="22 12 18 12 15 21 9 3 6 12 2 12"
-                                            />
-                                        </svg>
+                                        <Pulse />
                                         Variable
                                     </button>
                                 </div>
@@ -669,38 +481,8 @@ onMounted(() => {
                                     "
                                     @click="createIncome"
                                 >
-                                    <svg
-                                        v-if="!isCreating"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        width="16"
-                                        height="16"
-                                    >
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                    <svg
-                                        v-else
-                                        class="spinner"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        width="16"
-                                        height="16"
-                                    >
-                                        <circle
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke-dasharray="30 70"
-                                        />
-                                    </svg>
+                                    <Check v-if="!isCreating" />
+                                    <Spinner v-else />
                                     {{
                                         isCreating
                                             ? "Creando..."
@@ -711,31 +493,15 @@ onMounted(() => {
                         </div>
                     </Transition>
 
-                    <!-- Create Button -->
                     <button
                         v-if="!showCreateForm"
                         class="create-btn"
                         @click="showCreateForm = true"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            width="18"
-                            height="18"
-                        >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="8" x2="12" y2="16" />
-                            <line x1="8" y1="12" x2="16" y2="12" />
-                        </svg>
+                        <PlusCircle />
                         Crear ingreso
                     </button>
 
-                    <!-- Decorative bar -->
                     <div class="panel__accent">
                         <div
                             class="panel__accent-segment panel__accent-segment--green-light"
@@ -1024,7 +790,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ===== Layout ===== */
 .incomes-view {
     position: relative;
     display: flex;
@@ -1048,75 +813,6 @@ onMounted(() => {
     }
 }
 
-/* ===== Blobs ===== */
-.blob {
-    position: fixed;
-    width: 500px;
-    height: 500px;
-    z-index: 0;
-    pointer-events: none;
-}
-.blob--top-right {
-    top: -120px;
-    right: -120px;
-}
-.blob--bottom-left {
-    bottom: -150px;
-    left: -150px;
-}
-
-/* ===== Alerts ===== */
-.alert {
-    position: relative;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.85rem 1.15rem;
-    border-radius: 12px;
-    font-size: 0.88rem;
-    font-weight: 500;
-}
-.alert--success {
-    background: rgba(67, 160, 71, 0.08);
-    border: 1px solid rgba(67, 160, 71, 0.2);
-    color: var(--primary-color-dark, #388e3c);
-}
-.alert--error {
-    background: rgba(211, 47, 47, 0.06);
-    border: 1px solid rgba(211, 47, 47, 0.18);
-    color: #c62828;
-}
-.alert__close {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    border-radius: 6px;
-    opacity: 0.6;
-    transition: opacity 0.15s;
-}
-.alert__close:hover {
-    opacity: 1;
-}
-
-.alert-enter-active,
-.alert-leave-active {
-    transition: all 0.3s ease;
-}
-.alert-enter-from,
-.alert-leave-to {
-    opacity: 0;
-    transform: translateY(-8px);
-}
-
-/* ===== Panel ===== */
 .panel {
     position: relative;
     z-index: 1;
@@ -1190,7 +886,6 @@ onMounted(() => {
     font-weight: 600;
 }
 
-/* Panel accent bar */
 .panel__accent {
     display: flex;
     height: 4px;
@@ -1209,7 +904,6 @@ onMounted(() => {
     background: var(--primary-color-light, #66bb6a);
 }
 
-/* ===== Income List ===== */
 .income-list {
     padding: 0.5rem 0;
 }
@@ -1319,7 +1013,6 @@ onMounted(() => {
     color: #c62828;
 }
 
-/* Transitions */
 .income-enter-active,
 .income-leave-active {
     transition: all 0.3s ease;
@@ -1333,7 +1026,6 @@ onMounted(() => {
     transform: translateX(12px);
 }
 
-/* ===== Empty State ===== */
 .empty-state {
     display: flex;
     flex-direction: column;
@@ -1363,7 +1055,6 @@ onMounted(() => {
     color: var(--neutral-light, #6b7280);
 }
 
-/* ===== Create Form ===== */
 .create-form {
     padding: 1.25rem 1.75rem;
     background: rgba(67, 160, 71, 0.03);
@@ -1447,7 +1138,6 @@ onMounted(() => {
     color: #b0b0b0;
 }
 
-/* Type Selector */
 .create-form__type-selector {
     display: flex;
     gap: 0.75rem;
@@ -1480,7 +1170,6 @@ onMounted(() => {
     color: var(--primary-color-dark, #388e3c);
 }
 
-/* Actions */
 .create-form__actions {
     display: flex;
     gap: 0.75rem;
@@ -1531,7 +1220,6 @@ onMounted(() => {
     cursor: not-allowed;
 }
 
-/* Slide transition */
 .slide-enter-active {
     transition: all 0.3s ease;
 }
@@ -1544,7 +1232,6 @@ onMounted(() => {
     max-height: 0;
 }
 
-/* ===== Create Button ===== */
 .create-btn {
     display: flex;
     align-items: center;
@@ -1567,7 +1254,6 @@ onMounted(() => {
     background: rgba(67, 160, 71, 0.08);
 }
 
-/* ===== Amounts Section ===== */
 .amounts-section {
     padding: 1.25rem 1.75rem;
 }
@@ -1665,7 +1351,6 @@ onMounted(() => {
     -moz-appearance: textfield;
 }
 
-/* Save button */
 .save-btn {
     display: flex;
     align-items: center;
@@ -1697,7 +1382,6 @@ onMounted(() => {
     cursor: not-allowed;
 }
 
-/* Empty amounts */
 .amounts-empty {
     display: flex;
     flex-direction: column;
@@ -1712,7 +1396,6 @@ onMounted(() => {
     line-height: 1.4;
 }
 
-/* ===== Historical Section ===== */
 .historical-section {
     border-top: 1px solid rgba(0, 0, 0, 0.05);
     padding: 1.25rem 1.75rem;
@@ -1801,7 +1484,6 @@ onMounted(() => {
     color: var(--primary-color-dark, #388e3c);
 }
 
-/* Historical empty */
 .historical-empty {
     padding: 1.5rem;
     text-align: center;
@@ -1809,7 +1491,6 @@ onMounted(() => {
     font-size: 0.85rem;
 }
 
-/* ===== Skeleton ===== */
 .skeleton-card {
     position: relative;
     z-index: 1;
@@ -1855,7 +1536,6 @@ onMounted(() => {
     }
 }
 
-/* ===== Spinner ===== */
 .spinner {
     animation: spin 1s linear infinite;
 }
