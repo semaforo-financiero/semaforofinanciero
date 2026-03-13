@@ -70,3 +70,19 @@ class ExpenseSourceRepository:
         except Exception:
             logger.exception("Error deleting expense source")
             raise
+
+    def get_by_id_and_user(self, expense_source_id: str, user_id: str):
+        try:
+            return (
+                self.supabase
+                .table("expense_sources")
+                .select("id, user_id, is_active")
+                .eq("id", expense_source_id)
+                .eq("user_id", user_id)
+                .eq("is_active", True)
+                .limit(1)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Error getting expense source by id and user")
+            raise
