@@ -27,12 +27,11 @@ api_router.include_router(auth_router)
 api_router.include_router(family_router)
 api_router.include_router(income_source_router)
 api_router.include_router(income_router)
-app.include_router(expense_source_router)
-app.include_router(expense_router)
+api_router.include_router(expense_source_router)
+api_router.include_router(expense_router)
 app.include_router(api_router)
 
 app.include_router(profile_router, prefix="/api")
-
 
 @app.get("/")
 def root():
