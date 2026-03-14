@@ -7,6 +7,7 @@ import Home from "../views/Home.vue";
 import Profile from "../views/Profile.vue";
 import Family from "../views/Family.vue";
 import CreateFamily from "../views/CreateFamily.vue";
+import Incomes from "../views/Incomes.vue";
 
 const routes = [
     {
@@ -47,6 +48,12 @@ const routes = [
         path: "/family",
         name: "family",
         component: Family,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/incomes",
+        name: "incomes",
+        component: Incomes,
         meta: { requiresAuth: true },
     },
 ];
