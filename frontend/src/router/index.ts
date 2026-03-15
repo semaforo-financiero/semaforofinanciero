@@ -8,6 +8,7 @@ import Profile from "../views/Profile.vue";
 import Family from "../views/Family.vue";
 import CreateFamily from "../views/CreateFamily.vue";
 import Incomes from "../views/Incomes.vue";
+import Expenses from "../views/Expenses.vue";
 
 const routes = [
     {
@@ -54,6 +55,12 @@ const routes = [
         path: "/incomes",
         name: "incomes",
         component: Incomes,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: "/expenses",
+        name: "Expenses",
+        component: Expenses,
         meta: { requiresAuth: true },
     },
 ];

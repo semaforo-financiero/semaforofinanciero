@@ -1,3 +1,4 @@
+import ExpenseAPI from "./expense/ExpenseAPI";
 import FamilyAPI from "./family/FamilyAPI";
 import IncomeAPI from "./income/IncomeAPI";
 import InvitationAPI from "./invitations/InvitationAPI";
@@ -10,6 +11,7 @@ class API {
     family: FamilyAPI;
     invitation: InvitationAPI;
     income: IncomeAPI;
+    expense: ExpenseAPI;
 
     constructor() {
         this.user = new UserAPI();
@@ -17,6 +19,7 @@ class API {
         this.family = new FamilyAPI();
         this.invitation = new InvitationAPI();
         this.income = new IncomeAPI();
+        this.expense = new ExpenseAPI();
     }
 }
 

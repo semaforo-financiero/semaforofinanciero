@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from "vue";
 import { toasterStore } from "../stores/toasterStore";
 import api from "../lib/api";
 import { useAuthStore } from "../stores/authStore";
-import type Income from "../lib/api/models/Income";
+import type Expense from "../lib/api/models/Expense";
 import { STABILITY } from "../lib/api/models/Income";
 import CurrencySimbol from "../assets/icons/CurrencySimbol.vue";
 import Padlock from "../assets/icons/Padlock.vue";
@@ -14,8 +14,8 @@ import Spinner from "../components/atoms/Spinner.vue";
 import PlusCircle from "../assets/icons/PlusCircle.vue";
 import Check from "../assets/icons/Check.vue";
 
-interface IncomeAmount {
-    incomeId: string;
+interface ExpenseAmount {
+    expenseId: string;
     amount: number | null;
 }
 
@@ -29,19 +29,20 @@ interface HistoricalRecord {
 
 const authStore = useAuthStore();
 
-const incomes = ref<Income[]>([]);
-const incomeAmounts = ref<IncomeAmount[]>([]);
+const expenses = ref<Expense[]>([]);
+const expenseAmounts = ref<ExpenseAmount[]>([]);
 const historicalRecords = ref<HistoricalRecord[]>([]);
 
 const isLoading = ref(true);
 const showCreateForm = ref(false);
 const isCreating = ref(false);
-const removingIncomeId = ref<string | null>(null);
+const removingExpenseId = ref<string | null>(null);
 const isSavingAmounts = ref(false);
 
-const newIncome = ref<Income>({
+const newExpense = ref<Expense>({
     name: "",
     stability: STABILITY.FIXED,
+    is_debt: false,
     description: "",
 });
 
@@ -72,22 +73,24 @@ const getMonthYearLabel = (month: number, year: number) => {
     return `${monthNames[month]} ${year}`;
 };
 
-const getIncomeById = (id: string) => {
-    return incomes.value.find((i) => i.id === id);
+const getExpenseById = (id: string) => {
+    return expenses.value.find((e) => e.id === id);
 };
 
-const getAmountForIncome = (incomeId: string) => {
-    const found = incomeAmounts.value.find((a) => a.incomeId === incomeId);
+const getAmountForExpense = (expenseId: string) => {
+    const found = expenseAmounts.value.find((a) => a.expenseId === expenseId);
     return found?.amount ?? null;
 };
 
-const setAmountForIncome = (incomeId: string, value: string) => {
+const setAmountForExpense = (expenseId: string, value: string) => {
     const numValue = value === "" ? null : parseFloat(value);
-    const existing = incomeAmounts.value.find((a) => a.incomeId === incomeId);
+    const existing = expenseAmounts.value.find(
+        (a) => a.expenseId === expenseId,
+    );
     if (existing) {
         existing.amount = numValue;
     } else {
-        incomeAmounts.value.push({ incomeId, amount: numValue });
+        expenseAmounts.value.push({ expenseId, amount: numValue });
     }
 };
 
@@ -100,15 +103,15 @@ const fetchData = async () => {
             throw new Error("No se encontró el token de autenticación");
         }
 
-        incomes.value = await api.income.get(token);
+        expenses.value = await api.expense.get(token);
 
-        incomes.value = incomes.value.filter((income) => income.is_active);
+        expenses.value = expenses.value.filter((expense) => expense.is_active);
 
         // Mock current month amounts
-        incomeAmounts.value = [
-            { incomeId: "1", amount: 15000 },
-            { incomeId: "2", amount: null },
-            { incomeId: "3", amount: 500 },
+        expenseAmounts.value = [
+            { expenseId: "1", amount: 15000 },
+            { expenseId: "2", amount: null },
+            { expenseId: "3", amount: 500 },
         ];
 
         // Mock historical records
@@ -145,15 +148,15 @@ const fetchData = async () => {
     } catch (error) {
         toasterStore.error(
             "Error innesperado.",
-            "No se pudieron cargar los ingresos. Intenta de nuevo más tarde.",
+            "No se pudieron cargar los egresos. Intenta de nuevo más tarde.",
         );
     } finally {
         isLoading.value = false;
     }
 };
 
-const createIncome = async () => {
-    if (!newIncome.value.name.trim()) {
+const createExpense = async () => {
+    if (!newExpense.value.name.trim()) {
         return;
     }
 
@@ -166,20 +169,23 @@ const createIncome = async () => {
             throw new Error("No se encontró el token de autenticación");
         }
 
-        const created: Income = {
-            name: newIncome.value.name,
-            stability: newIncome.value.stability,
-            description: newIncome.value.description,
+        const created: Expense = {
+            name: newExpense.value.name,
+            stability: newExpense.value.stability,
+            description: newExpense.value.description,
         };
 
-        const incomeIdCreated = await api.income.create(created, token);
+        const expenseIdCreated = await api.expense.create(created, token);
 
-        created.id = incomeIdCreated;
-        incomes.value.push(created);
+        created.id = expenseIdCreated;
+        expenses.value.push(created);
 
-        incomeAmounts.value.push({ incomeId: incomeIdCreated, amount: null });
+        expenseAmounts.value.push({
+            expenseId: expenseIdCreated,
+            amount: null,
+        });
 
-        newIncome.value = {
+        newExpense.value = {
             name: "",
             stability: STABILITY.FIXED,
             description: "",
@@ -188,21 +194,21 @@ const createIncome = async () => {
         showCreateForm.value = false;
 
         toasterStore.success(
-            "Ingreso creado",
-            `El ingreso "${created.name}" ha sido creado.`,
+            "Egreso creado",
+            `El egreso "${created.name}" ha sido creado.`,
         );
     } catch (error) {
         toasterStore.error(
-            "Error al crear el ingreso.",
-            "No se pudo crear el ingreso. Intenta de nuevo más tarde.",
+            "Error al crear el egreso.",
+            "No se pudo crear el egreso. Intenta de nuevo más tarde.",
         );
     } finally {
         isCreating.value = false;
     }
 };
 
-const removeIncome = async (income: Income) => {
-    removingIncomeId.value = income.id!;
+const removeExpense = async (expense: Expense) => {
+    removingExpenseId.value = expense.id!;
 
     try {
         const token = authStore.getAccessToken();
@@ -211,25 +217,25 @@ const removeIncome = async (income: Income) => {
             throw new Error("No se encontró el token de autenticación");
         }
 
-        await api.income.delete(income.id!, token);
+        await api.expense.delete(expense.id!, token);
 
-        incomes.value = incomes.value.filter((i) => i.id !== income.id);
+        expenses.value = expenses.value.filter((e) => e.id !== expense.id);
 
-        incomeAmounts.value = incomeAmounts.value.filter(
-            (a) => a.incomeId !== income.id,
+        expenseAmounts.value = expenseAmounts.value.filter(
+            (a) => a.expenseId !== expense.id,
         );
 
         toasterStore.success(
-            "Ingreso eliminado",
-            `El ingreso "${income.name}" ha sido eliminado.`,
+            "Egreso eliminado",
+            `El egreso "${expense.name}" ha sido eliminado.`,
         );
     } catch (error) {
         toasterStore.error(
-            "Error al eliminar el ingreso.",
-            "No se pudo eliminar el ingreso. Intenta de nuevo más tarde.",
+            "Error al eliminar el egreso.",
+            "No se pudo eliminar el egreso. Intenta de nuevo más tarde.",
         );
     } finally {
-        removingIncomeId.value = null;
+        removingExpenseId.value = null;
     }
 };
 
@@ -243,7 +249,7 @@ const saveAmounts = async () => {
 
         toasterStore.success(
             "Montos guardados",
-            "Los montos de ingresos han sido actualizados.",
+            "Los montos de egresos han sido actualizados.",
         );
     } catch (error) {
         toasterStore.error(
@@ -257,7 +263,7 @@ const saveAmounts = async () => {
 
 const cancelCreate = () => {
     showCreateForm.value = false;
-    newIncome.value = { name: "", stability: "FIXED", description: "" };
+    newExpense.value = { name: "", stability: "FIXED", description: "" };
 };
 
 const formatCurrency = (amount: number) => {
@@ -273,9 +279,9 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="incomes-view">
+    <div class="expense-view">
         <template v-if="isLoading">
-            <div class="incomes-grid">
+            <div class="expense-grid">
                 <div class="skeleton-card">
                     <div class="skeleton skeleton--title"></div>
                     <div
@@ -296,7 +302,7 @@ onMounted(() => {
         </template>
 
         <template v-else>
-            <div class="incomes-grid">
+            <div class="expense-grid">
                 <div class="panel panel--left">
                     <div class="panel__header">
                         <div class="panel__header-left">
@@ -304,58 +310,59 @@ onMounted(() => {
                                 <CurrencySimbol />
                             </div>
                             <div>
-                                <h2 class="panel__title">Ingresos</h2>
+                                <h2 class="panel__title">Egresos</h2>
                                 <p class="panel__subtitle">
-                                    Gestiona tus fuentes de ingreso
+                                    Gestiona tus egresos
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div v-if="incomes.length > 0" class="income-list">
-                        <TransitionGroup name="income">
+                    <div v-if="expenses.length > 0" class="expense-list">
+                        <TransitionGroup name="expense">
                             <div
-                                v-for="income in incomes"
-                                :key="income.id"
-                                class="income-item"
+                                v-for="expense in expenses"
+                                :key="expense.id"
+                                class="expense-item"
                                 :class="{
-                                    'income-item--removing':
-                                        removingIncomeId === income.id,
+                                    'expense-item--removing':
+                                        removingExpenseId === expense.id,
                                 }"
                             >
-                                <div class="income-item__left">
+                                <div class="expense-item__left">
                                     <div
-                                        class="income-item__icon"
+                                        class="expense-item__icon"
                                         :class="
-                                            income.stability === STABILITY.FIXED
-                                                ? 'income-item__icon--fixed'
-                                                : 'income-item__icon--variable'
+                                            expense.stability ===
+                                            STABILITY.FIXED
+                                                ? 'expense-item__icon--fixed'
+                                                : 'expense-item__icon--variable'
                                         "
                                     >
                                         <Padlock
                                             v-if="
-                                                income.stability ===
+                                                expense.stability ===
                                                 STABILITY.FIXED
                                             "
                                         />
                                         <Pulse v-else />
                                     </div>
-                                    <div class="income-item__info">
-                                        <div class="income-item__name-row">
-                                            <span class="income-item__name">{{
-                                                income.name
+                                    <div class="expense-item__info">
+                                        <div class="expense-item__name-row">
+                                            <span class="expense-item__name">{{
+                                                expense.name
                                             }}</span>
                                             <span
-                                                class="income-item__badge"
+                                                class="expense-item__badge"
                                                 :class="
-                                                    income.stability ===
+                                                    expense.stability ===
                                                     STABILITY.FIXED
-                                                        ? 'income-item__badge--fixed'
-                                                        : 'income-item__badge--variable'
+                                                        ? 'expense-item__badge--fixed'
+                                                        : 'expense-item__badge--variable'
                                                 "
                                             >
                                                 {{
-                                                    income.stability ===
+                                                    expense.stability ===
                                                     STABILITY.FIXED
                                                         ? "Fijo"
                                                         : "Variable"
@@ -363,22 +370,22 @@ onMounted(() => {
                                             </span>
                                         </div>
                                         <span
-                                            class="income-item__description"
+                                            class="expense-item__description"
                                             >{{
-                                                income.description ||
+                                                expense.description ||
                                                 "Sin descripcion"
                                             }}</span
                                         >
                                     </div>
                                 </div>
                                 <button
-                                    class="income-item__remove"
-                                    :disabled="removingIncomeId === income.id"
-                                    @click="removeIncome(income)"
-                                    :title="`Eliminar ${income.name}`"
+                                    class="expense-item__remove"
+                                    :disabled="removingExpenseId === expense.id"
+                                    :title="`Eliminar ${expense.name}`"
+                                    @click="removeExpense(expense)"
                                 >
                                     <Trash
-                                        v-if="removingIncomeId !== income.id"
+                                        v-if="removingExpenseId !== expense.id"
                                     />
                                     <Spinner v-else />
                                 </button>
@@ -389,10 +396,10 @@ onMounted(() => {
                     <div v-else-if="!showCreateForm" class="empty-state">
                         <div class="empty-state__icon"><CurrencySimbol /></div>
                         <p class="empty-state__text">
-                            No hay ingresos registrados
+                            No hay egresos registrados
                         </p>
                         <p class="empty-state__sub">
-                            Crea tu primer ingreso para comenzar
+                            Crea tu primer egreso para comenzar
                         </p>
                     </div>
 
@@ -400,14 +407,14 @@ onMounted(() => {
                         <div v-if="showCreateForm" class="create-form">
                             <div class="create-form__header">
                                 <PlusCircle />
-                                <span>Nuevo ingreso</span>
+                                <span>Nuevo egreso</span>
                             </div>
 
                             <div class="create-form__field">
                                 <label class="create-form__label">Nombre</label>
                                 <div class="create-form__input-wrapper">
                                     <input
-                                        v-model="newIncome.name"
+                                        v-model="newExpense.name"
                                         type="text"
                                         class="create-form__input"
                                         placeholder="Ej: Salario, Freelance..."
@@ -417,7 +424,7 @@ onMounted(() => {
 
                             <div class="create-form__field">
                                 <label class="create-form__label"
-                                    >Tipo de ingreso</label
+                                    >Tipo de egreso</label
                                 >
                                 <div class="create-form__type-selector">
                                     <button
@@ -425,11 +432,11 @@ onMounted(() => {
                                         class="create-form__type-btn"
                                         :class="{
                                             'create-form__type-btn--active':
-                                                newIncome.stability ===
+                                                newExpense.stability ===
                                                 STABILITY.FIXED,
                                         }"
                                         @click="
-                                            newIncome.stability =
+                                            newExpense.stability =
                                                 STABILITY.FIXED
                                         "
                                     >
@@ -441,11 +448,11 @@ onMounted(() => {
                                         class="create-form__type-btn"
                                         :class="{
                                             'create-form__type-btn--active':
-                                                newIncome.stability ===
+                                                newExpense.stability ===
                                                 STABILITY.VARIABLE,
                                         }"
                                         @click="
-                                            newIncome.stability =
+                                            newExpense.stability =
                                                 STABILITY.VARIABLE
                                         "
                                     >
@@ -460,9 +467,9 @@ onMounted(() => {
                                     >Descripcion (opcional)</label
                                 >
                                 <textarea
-                                    v-model="newIncome.description"
+                                    v-model="newExpense.description"
                                     class="create-form__textarea"
-                                    placeholder="Breve descripcion del ingreso..."
+                                    placeholder="Breve descripcion del egreso..."
                                     rows="2"
                                 ></textarea>
                             </div>
@@ -477,16 +484,16 @@ onMounted(() => {
                                 <button
                                     class="create-form__btn create-form__btn--submit"
                                     :disabled="
-                                        isCreating || !newIncome.name.trim()
+                                        isCreating || !newExpense.name.trim()
                                     "
-                                    @click="createIncome"
+                                    @click="createExpense"
                                 >
                                     <Check v-if="!isCreating" />
                                     <Spinner v-else />
                                     {{
                                         isCreating
                                             ? "Creando..."
-                                            : "Crear ingreso"
+                                            : "Crear egreso"
                                     }}
                                 </button>
                             </div>
@@ -499,7 +506,7 @@ onMounted(() => {
                         @click="showCreateForm = true"
                     >
                         <PlusCircle />
-                        Crear ingreso
+                        Crear egreso
                     </button>
 
                     <div class="panel__accent">
@@ -509,7 +516,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- RIGHT PANEL: Income Amounts -->
+                <!-- RIGHT PANEL: Expense Amounts -->
                 <div class="panel panel--right">
                     <div class="panel__header">
                         <div class="panel__header-left">
@@ -539,7 +546,7 @@ onMounted(() => {
                                 </svg>
                             </div>
                             <div>
-                                <h2 class="panel__title">Monto de ingresos</h2>
+                                <h2 class="panel__title">Monto de egresos</h2>
                                 <p
                                     class="panel__subtitle panel__subtitle--highlight"
                                 >
@@ -550,27 +557,29 @@ onMounted(() => {
                     </div>
 
                     <!-- Amount Inputs -->
-                    <div v-if="incomes.length > 0" class="amounts-section">
+                    <div v-if="expenses.length > 0" class="amounts-section">
                         <div class="amounts-list">
                             <div
-                                v-for="income in incomes"
-                                :key="income.id"
+                                v-for="expense in expenses"
+                                :key="expense.id"
                                 class="amount-row"
                             >
                                 <div class="amount-row__label">
                                     <span class="amount-row__name">{{
-                                        income.name
+                                        expense.name
                                     }}</span>
                                     <span
                                         class="amount-row__type"
                                         :class="
-                                            income.type === 'fixed'
+                                            expense.stability ===
+                                            STABILITY.FIXED
                                                 ? 'amount-row__type--fixed'
                                                 : 'amount-row__type--variable'
                                         "
                                     >
                                         {{
-                                            income.type === "fixed"
+                                            expense.stability ===
+                                            STABILITY.FIXED
                                                 ? "Fijo"
                                                 : "Variable"
                                         }}
@@ -582,11 +591,13 @@ onMounted(() => {
                                         type="number"
                                         class="amount-row__input"
                                         placeholder="0.00"
-                                        :value="getAmountForIncome(income.id)"
+                                        :value="
+                                            getAmountForExpense(expense.id!)
+                                        "
                                         @input="
                                             (e) =>
-                                                setAmountForIncome(
-                                                    income.id,
+                                                setAmountForExpense(
+                                                    expense.id!,
                                                     (
                                                         e.target as HTMLInputElement
                                                     ).value,
@@ -646,7 +657,7 @@ onMounted(() => {
                         </button>
                     </div>
 
-                    <!-- No incomes message -->
+                    <!-- No expenses message -->
                     <div v-else class="amounts-empty">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -664,7 +675,7 @@ onMounted(() => {
                             <line x1="12" y1="8" x2="12.01" y2="8" />
                         </svg>
                         <p>
-                            Crea tus ingresos primero para poder registrar los
+                            Crea tus egresos primero para poder registrar los
                             montos
                         </p>
                     </div>
@@ -686,7 +697,7 @@ onMounted(() => {
                                 <circle cx="12" cy="12" r="10" />
                                 <polyline points="12 6 12 12 16 14" />
                             </svg>
-                            <h3>Historico de ingresos</h3>
+                            <h3>Historico de egresos</h3>
                         </div>
 
                         <div
@@ -790,7 +801,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.incomes-view {
+.expense-view {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -800,14 +811,14 @@ onMounted(() => {
     padding: 0 1.5rem;
 }
 
-.incomes-grid {
+.expense-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.5rem;
 }
 
 @media (min-width: 860px) {
-    .incomes-grid {
+    .expense-grid {
         grid-template-columns: 1fr 1fr;
         gap: 2rem;
     }
@@ -904,11 +915,11 @@ onMounted(() => {
     background: var(--primary-color-light, #66bb6a);
 }
 
-.income-list {
+.expense-list {
     padding: 0.5rem 0;
 }
 
-.income-item {
+.expense-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -917,22 +928,22 @@ onMounted(() => {
         background 0.15s,
         opacity 0.3s;
 }
-.income-item:hover {
+.expense-item:hover {
     background: rgba(0, 0, 0, 0.015);
 }
-.income-item--removing {
+.expense-item--removing {
     opacity: 0.4;
     pointer-events: none;
 }
 
-.income-item__left {
+.expense-item__left {
     display: flex;
     align-items: center;
     gap: 0.85rem;
     min-width: 0;
 }
 
-.income-item__icon {
+.expense-item__icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -941,35 +952,35 @@ onMounted(() => {
     min-width: 40px;
     border-radius: 10px;
 }
-.income-item__icon--fixed {
+.expense-item__icon--fixed {
     background: rgba(67, 160, 71, 0.1);
     color: var(--primary-color, #43a047);
 }
-.income-item__icon--variable {
+.expense-item__icon--variable {
     background: rgba(0, 98, 133, 0.1);
     color: var(--secondary-color, #006285);
 }
 
-.income-item__info {
+.expense-item__info {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
     min-width: 0;
 }
 
-.income-item__name-row {
+.expense-item__name-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-.income-item__name {
+.expense-item__name {
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-color, #212121);
 }
 
-.income-item__badge {
+.expense-item__badge {
     padding: 0.12rem 0.5rem;
     border-radius: 5px;
     font-size: 0.68rem;
@@ -977,16 +988,16 @@ onMounted(() => {
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
-.income-item__badge--fixed {
+.expense-item__badge--fixed {
     background: rgba(67, 160, 71, 0.1);
     color: var(--primary-color-dark, #388e3c);
 }
-.income-item__badge--variable {
+.expense-item__badge--variable {
     background: rgba(0, 98, 133, 0.1);
     color: var(--secondary-color, #006285);
 }
 
-.income-item__description {
+.expense-item__description {
     font-size: 0.78rem;
     color: var(--neutral-light, #6b7280);
     white-space: nowrap;
@@ -994,7 +1005,7 @@ onMounted(() => {
     text-overflow: ellipsis;
 }
 
-.income-item__remove {
+.expense-item__remove {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1008,20 +1019,20 @@ onMounted(() => {
     transition: all 0.15s;
     flex-shrink: 0;
 }
-.income-item__remove:hover:not(:disabled) {
+.expense-item__remove:hover:not(:disabled) {
     background: rgba(211, 47, 47, 0.08);
     color: #c62828;
 }
 
-.income-enter-active,
-.income-leave-active {
+.expense-enter-active,
+.expense-leave-active {
     transition: all 0.3s ease;
 }
-.income-enter-from {
+.expense-enter-from {
     opacity: 0;
     transform: translateX(-12px);
 }
-.income-leave-to {
+.expense-leave-to {
     opacity: 0;
     transform: translateX(12px);
 }
