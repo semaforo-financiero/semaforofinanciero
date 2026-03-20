@@ -31,9 +31,8 @@ class ExpenseRepository:
             return (
                 self.supabase
                 .table("expenses")
-                .select("*, expense_sources!inner(user_id, name, is_active, is_debt, stability)")
+                .select("*, expense_sources!inner!expenses_expense_source_id_fkey(user_id, name, is_active, is_debt, stability)")
                 .eq("expense_sources.user_id", user_id)
-                .eq("expense_sources.is_active", True)
                 .execute()
             )
         except Exception:
