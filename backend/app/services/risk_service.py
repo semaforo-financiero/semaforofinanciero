@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+from fastapi import HTTPException
+from supabase import Client
+
+from app.repositories.expense_repository import ExpenseRepository
+from app.repositories.family_repository import FamilyRepository
+from app.repositories.income_repository import IncomeRepository
+from app.repositories.profile_repository import ProfileRepository
+from app.services.expert_system_service import ExpertSystemService
+
+
+class RiskService:
+    def __init__(self, supabase: Client):
+        self.income_repository = IncomeRepository(supabase)
+        self.expense_repository = ExpenseRepository(supabase)
+        self.family_repository = FamilyRepository(supabase)
+        self.profile_repository = ProfileRepository(supabase)
+        self.expert_system_service = ExpertSystemService()
+
+    def _get_nested_source(self, item: dict, key: str) -> dict:
+        source = item.get(key)
+        if isinstance(source, list):
+            return source[0] if source else {}
+        return source or {}
+
+    def _normalize_employment_status(self, socioeconomic_profile: dict | None) -> str:
+        if not socioeconomic_profile:
+            return "UNKNOWN"
+        return str(socioeconomic_profile.get("employment_status") or "UNKNOWN").upper()
+
+    def _extract_years_working(self, socioeconomic_profile: dict | None) -> int | None:
+        if not socioeconomic_profile:
+            return None
+        years_working = socioeconomic_profile.get("years_working")
+        return int(years_working) if years_working is not None else None
+
+    def _build_financial_profile(
+        self,
+        incomes: list[dict],
+        expenses: list[dict],
+        socioeconomic_profiles: list[dict] | None = None,
+        analysis_scope: str = "USER",
+    ) -> dict:
+        total_income = sum(float(income.get("amount") or 0) for income in incomes)
+        total_expense = sum(float(expense.get("amount") or 0) for expense in expenses)
+
+        debt_expense = 0.0
+        fixed_expense = 0.0
+        variable_expense = 0.0
+
+        unique_income_sources = {
+            income.get("income_source_id")
+            for income in incomes
+            if income.get("income_source_id")
+        }
+
+        variable_income_sources = {
+            income.get("income_source_id")
+            for income in incomes
+            if str(self._get_nested_source(income, "income_sources").get("stability") or "").upper() == "VARIABLE"
+        }
+
+        income_periods = {
+            (income.get("year"), income.get("month"))
+            for income in incomes
+            if income.get("year") is not None and income.get("month") is not None
+        }
+        expense_periods = {
+            (expense.get("year"), expense.get("month"))
+            for expense in expenses
+            if expense.get("year") is not None and expense.get("month") is not None
+        }
+
+        for expense in expenses:
+            amount = float(expense.get("amount") or 0)
+            source = self._get_nested_source(expense, "expense_sources")
+            stability = str(source.get("stability") or "").upper()
+
+            if bool(source.get("is_debt")):
+                debt_expense += amount
+
+            if stability == "FIXED":
+                fixed_expense += amount
+            elif stability == "VARIABLE":
+                variable_expense += amount
+
+        savings = total_income - total_expense
+        expense_ratio = total_expense / total_income if total_income > 0 else float(total_expense > 0)
+        debt_ratio = debt_expense / total_income if total_income > 0 else float(debt_expense > 0)
+        fixed_expense_ratio = fixed_expense / total_income if total_income > 0 else float(fixed_expense > 0)
+        variable_expense_ratio = (
+            variable_expense / total_income if total_income > 0 else float(variable_expense > 0)
+        )
+        savings_ratio = savings / total_income if total_income > 0 else 0.0
+        months_analyzed = len(income_periods | expense_periods)
+        total_income_sources = len(unique_income_sources)
+        variable_income_ratio = (
+            len(variable_income_sources) / total_income_sources
+            if total_income_sources > 0 else 0
+        )
+        normalized_profiles = socioeconomic_profiles or []
+        employment_statuses = [
+            self._normalize_employment_status(profile) for profile in normalized_profiles
+        ]
+        years_working_values = []
+        for profile in normalized_profiles:
+            years_working_value = self._extract_years_working(profile)
+            if years_working_value is not None:
+                years_working_values.append(years_working_value)
+
+        employment_status = "UNKNOWN"
+        if "UNEMPLOYED" in employment_statuses:
+            employment_status = "UNEMPLOYED"
+        elif "EMPLOYED" in employment_statuses:
+            employment_status = "EMPLOYED"
+        elif employment_statuses:
+            employment_status = employment_statuses[0]
+
+        years_working = min(years_working_values) if years_working_values else None
+
+        return {
+            "analysis_scope": analysis_scope,
+            "income": round(total_income, 2),
+            "expense": round(total_expense, 2),
+            "savings": round(savings, 2),
+            "expense_ratio": round(expense_ratio, 4),
+            "debt_expense": round(debt_expense, 2),
+            "debt_ratio": round(debt_ratio, 4),
+            "fixed_expense": round(fixed_expense, 2),
+            "fixed_expense_ratio": round(fixed_expense_ratio, 4),
+            "variable_expense": round(variable_expense, 2),
+            "variable_expense_ratio": round(variable_expense_ratio, 4),
+            "savings_ratio": round(savings_ratio, 4),
+            "months_analyzed": months_analyzed,
+            "variable_income_ratio": round(variable_income_ratio, 4),
+            "employment_status": employment_status,
+            "years_working": years_working,
+        }
+
+    def _build_response(
+        self,
+        profile: dict,
+        result: dict,
+        family_data: dict | None = None,
+        member_count: int | None = None,
+    ) -> dict:
+        response = {
+            "risk": result["risk"],
+            "score": result["score"],
+            "rules": result["rules"],
+            "recommendations": result["recommendations"],
+            "indicators": profile,
+        }
+
+        if family_data:
+            response["family_id"] = family_data["id"]
+            response["family_name"] = family_data["name"]
+            response["member_count"] = member_count or 0
+
+        return response
+
+    def get_user_risk(self, user_id: str):
+        incomes_res = self.income_repository.get_incomes_by_user(user_id)
+        expenses_res = self.expense_repository.get_expenses_by_user(user_id)
+        socioeconomic_profile = self.profile_repository.get_socioeconomic_profile(user_id)
+
+        incomes = incomes_res.data or []
+        expenses = expenses_res.data or []
+
+        profile = self._build_financial_profile(
+            incomes=incomes,
+            expenses=expenses,
+            socioeconomic_profiles=[socioeconomic_profile] if socioeconomic_profile else [],
+            analysis_scope="USER",
+        )
+        result = self.expert_system_service.evaluate_financial_risk(profile)
+
+        return self._build_response(profile=profile, result=result)
+
+    def get_family_risk(self, user_id: str):
+        family = self.family_repository.get_family_by_user(user_id)
+        if not family:
+            raise HTTPException(status_code=404, detail="Family not found")
+
+        members = family["members"]
+        all_incomes: list[dict] = []
+        all_expenses: list[dict] = []
+        socioeconomic_profiles: list[dict] = []
+
+        for member in members:
+            member_id = member["user_id"]
+
+            incomes_res = self.income_repository.get_incomes_by_user(member_id)
+            expenses_res = self.expense_repository.get_expenses_by_user(member_id)
+            socioeconomic_profile = self.profile_repository.get_socioeconomic_profile(member_id)
+
+            all_incomes.extend(incomes_res.data or [])
+            all_expenses.extend(expenses_res.data or [])
+
+            if socioeconomic_profile:
+                socioeconomic_profiles.append(socioeconomic_profile)
+
+        profile = self._build_financial_profile(
+            incomes=all_incomes,
+            expenses=all_expenses,
+            socioeconomic_profiles=socioeconomic_profiles,
+            analysis_scope="FAMILY",
+        )
+        result = self.expert_system_service.evaluate_financial_risk(profile)
+
+        return self._build_response(
+            profile=profile,
+            result=result,
+            family_data=family,
+            member_count=len(members),
+        )
