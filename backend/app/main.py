@@ -10,12 +10,13 @@ from app.core.exceptions import AppException
 from app.routes.profile_route import router as profile_router
 from app.routes.expense_source_route import router as expense_source_router
 from app.routes.expense_route import router as expense_router
+from app.routes.risk_route import router as risk_router
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "https://semaforofinanciero.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],  
     allow_headers=["*"],  
@@ -29,6 +30,7 @@ api_router.include_router(income_source_router)
 api_router.include_router(income_router)
 api_router.include_router(expense_source_router)
 api_router.include_router(expense_router)
+api_router.include_router(risk_router)
 app.include_router(api_router)
 
 app.include_router(profile_router, prefix="/api")

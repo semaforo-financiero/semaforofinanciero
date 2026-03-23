@@ -22,7 +22,7 @@ class IncomeRepository:
         return (
             self.supabase
             .table("incomes")
-            .select("*, income_sources!inner()")
+            .select("*, income_sources!inner!incomes_income_source_id_fk(user_id, name, is_active, stability)")
             .eq("income_sources.user_id", user_id)
             .execute()
         )
