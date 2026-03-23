@@ -72,7 +72,6 @@ class RiskService:
             for income in incomes
             if income.get("year") is not None and income.get("month") is not None
         }
-
         expense_periods = {
             (expense.get("year"), expense.get("month"))
             for expense in expenses
@@ -102,17 +101,14 @@ class RiskService:
         savings_ratio = savings / total_income if total_income > 0 else 0.0
         months_analyzed = len(income_periods | expense_periods)
         total_income_sources = len(unique_income_sources)
-
         variable_income_sources_ratio = (
             len(variable_income_sources) / total_income_sources
             if total_income_sources > 0 else 0
         )
-
         normalized_profiles = socioeconomic_profiles or []
         employment_statuses = [
             self._normalize_employment_status(profile) for profile in normalized_profiles
         ]
-
         years_working_values = []
         for profile in normalized_profiles:
             years_working_value = self._extract_years_working(profile)
