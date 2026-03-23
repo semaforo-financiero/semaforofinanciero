@@ -166,7 +166,6 @@ class ExpertSystemService:
 
         score = max(sum(rule["score"] for rule in triggered_rules), 0)
 
-        #clasificacion del riesgo
         if score >= 60:
             risk = "HIGH"
         elif score >= 30:
