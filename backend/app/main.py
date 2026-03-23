@@ -33,7 +33,7 @@ app.include_router(api_router)
 
 app.include_router(profile_router, prefix="/api")
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"message": "Semaforo Financiero backend activo"}
 
