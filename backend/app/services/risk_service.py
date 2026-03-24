@@ -3,10 +3,13 @@ from __future__ import annotations
 from fastapi import HTTPException
 from supabase import Client
 
+from app.models.schemas.financial_snapshot_schema import FinancialSnapshotCreate
 from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.family_repository import FamilyRepository
+from app.repositories.financial_snapshot_repository import FinancialSnapshotRepository
 from app.repositories.income_repository import IncomeRepository
 from app.repositories.profile_repository import ProfileRepository
+from app.services.data_mining_service import DataMiningService
 from app.services.expert_system_service import ExpertSystemService
 
 
@@ -16,7 +19,10 @@ class RiskService:
         self.expense_repository = ExpenseRepository(supabase)
         self.family_repository = FamilyRepository(supabase)
         self.profile_repository = ProfileRepository(supabase)
+        self.snapshot_repository = FinancialSnapshotRepository(supabase)
+
         self.expert_system_service = ExpertSystemService()
+        self.data_mining_service = DataMiningService()
 
     def _get_nested_source(self, item: dict, key: str) -> dict:
         source = item.get(key)
@@ -66,6 +72,7 @@ class RiskService:
             for income in incomes
             if income.get("year") is not None and income.get("month") is not None
         }
+
         expense_periods = {
             (expense.get("year"), expense.get("month"))
             for expense in expenses
@@ -95,14 +102,17 @@ class RiskService:
         savings_ratio = savings / total_income if total_income > 0 else 0.0
         months_analyzed = len(income_periods | expense_periods)
         total_income_sources = len(unique_income_sources)
+
         variable_income_sources_ratio = (
             len(variable_income_sources) / total_income_sources
             if total_income_sources > 0 else 0
         )
+
         normalized_profiles = socioeconomic_profiles or []
         employment_statuses = [
             self._normalize_employment_status(profile) for profile in normalized_profiles
         ]
+
         years_working_values = []
         for profile in normalized_profiles:
             years_working_value = self._extract_years_working(profile)
@@ -138,6 +148,74 @@ class RiskService:
             "years_working": years_working,
         }
 
+    def _save_snapshot(
+        self,
+        profile: dict,
+        expert_result: dict,
+        user_id: str | None = None,
+        family_id: str | None = None,
+    ) -> None:
+        snapshot = FinancialSnapshotCreate(
+            user_id=user_id,
+            family_id=family_id,
+            analysis_scope=profile["analysis_scope"],
+            income=profile["income"],
+            expense=profile["expense"],
+            savings=profile["savings"],
+            expense_ratio=profile["expense_ratio"],
+            debt_expense_amount=profile["debt_expense_amount"],
+            debt_ratio=profile["debt_ratio"],
+            fixed_expense_amount=profile["fixed_expense_amount"],
+            fixed_expense_ratio=profile["fixed_expense_ratio"],
+            variable_expense_amount=profile["variable_expense_amount"],
+            variable_expense_ratio=profile["variable_expense_ratio"],
+            savings_ratio=profile["savings_ratio"],
+            months_analyzed=profile["months_analyzed"],
+            variable_income_sources_ratio=profile["variable_income_sources_ratio"],
+            employment_status=profile["employment_status"],
+            years_working=profile["years_working"],
+            expert_risk=expert_result["risk"],
+            expert_score=expert_result["score"],
+        )
+        self.snapshot_repository.create_snapshot(snapshot)
+
+    def _combine_risk_results(self, expert_result: dict, mining_result: dict | None) -> dict:
+        if not mining_result:
+            return {
+                **expert_result,
+                "data_mining": None,
+            }
+
+        expert_score = expert_result["score"]
+        mining_risk = str(mining_result["predicted_risk"]).upper()
+        confidence = float(mining_result["confidence"])
+
+        mining_score_map = {
+            "LOW": 10,
+            "MEDIUM": 35,
+            "HIGH": 65,
+        }
+
+        mining_score = mining_score_map.get(mining_risk, 0)
+
+        final_score = round((expert_score * 0.7) + (mining_score * 0.3 * confidence))
+        final_score = max(final_score, 0)
+
+        if final_score >= 60:
+            final_risk = "HIGH"
+        elif final_score >= 30:
+            final_risk = "MEDIUM"
+        else:
+            final_risk = "LOW"
+
+        return {
+            "risk": final_risk,
+            "score": final_score,
+            "rules": expert_result["rules"],
+            "recommendations": expert_result["recommendations"],
+            "data_mining": mining_result,
+        }
+
     def _build_response(
         self,
         profile: dict,
@@ -151,6 +229,7 @@ class RiskService:
             "rules": result["rules"],
             "recommendations": result["recommendations"],
             "indicators": profile,
+            "data_mining": result.get("data_mining"),
         }
 
         if family_data:
@@ -174,9 +253,22 @@ class RiskService:
             socioeconomic_profiles=[socioeconomic_profile] if socioeconomic_profile else [],
             analysis_scope="USER",
         )
-        result = self.expert_system_service.evaluate_financial_risk(profile)
 
-        return self._build_response(profile=profile, result=result)
+        expert_result = self.expert_system_service.evaluate_financial_risk(profile)
+
+        self._save_snapshot(
+            profile=profile,
+            expert_result=expert_result,
+            user_id=user_id,
+        )
+
+        mining_result = self.data_mining_service.predict_risk(profile)
+        final_result = self._combine_risk_results(expert_result, mining_result)
+
+        return self._build_response(
+            profile=profile,
+            result=final_result,
+        )
 
     def get_family_risk(self, user_id: str):
         family = self.family_repository.get_family_by_user(user_id)
@@ -207,11 +299,21 @@ class RiskService:
             socioeconomic_profiles=socioeconomic_profiles,
             analysis_scope="FAMILY",
         )
-        result = self.expert_system_service.evaluate_financial_risk(profile)
+
+        expert_result = self.expert_system_service.evaluate_financial_risk(profile)
+
+        self._save_snapshot(
+            profile=profile,
+            expert_result=expert_result,
+            family_id=family["id"],
+        )
+
+        mining_result = self.data_mining_service.predict_risk(profile)
+        final_result = self._combine_risk_results(expert_result, mining_result)
 
         return self._build_response(
             profile=profile,
-            result=result,
+            result=final_result,
             family_data=family,
             member_count=len(members),
         )
