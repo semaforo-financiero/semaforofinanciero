@@ -186,6 +186,7 @@ const createExpense = async () => {
             name: newExpense.value.name,
             stability: newExpense.value.stability,
             description: newExpense.value.description,
+            is_debt: newExpense.value.is_debt,
         };
 
         const expenseIdCreated = await api.expense.create(created, token);
@@ -501,6 +502,36 @@ onMounted(() => {
                                     >
                                         <Pulse />
                                         Variable
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="create-form__field">
+                                <label class="create-form__label"
+                                    >¿Es una deuda?</label
+                                >
+                                <div class="create-form__type-selector">
+                                    <button
+                                        type="button"
+                                        class="create-form__type-btn"
+                                        :class="{
+                                            'create-form__type-btn--active':
+                                                newExpense.is_debt === true,
+                                        }"
+                                        @click="newExpense.is_debt = true"
+                                    >
+                                        Si
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="create-form__type-btn"
+                                        :class="{
+                                            'create-form__type-btn--active':
+                                                newExpense.is_debt === false,
+                                        }"
+                                        @click="newExpense.is_debt = false"
+                                    >
+                                        No
                                     </button>
                                 </div>
                             </div>
