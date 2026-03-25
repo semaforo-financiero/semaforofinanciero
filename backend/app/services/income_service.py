@@ -45,13 +45,6 @@ class IncomeService:
         if not income.data:
             raise HTTPException(404, "Income not found")
 
-        income_source_id = income.data[0]["income_source_id"]
-
-        income_source = self.income_source_repository.find_income_source(income_source_id)
-
-        if not income_source.data or income_source.data[0]["user_id"] != user_id:
-            raise HTTPException(404, "Income not found")
-
         response = self.income_repository.update_income(income_id, update_data)
 
         if not response.data:

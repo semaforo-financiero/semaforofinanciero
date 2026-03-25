@@ -13,11 +13,12 @@ import Trash from "../assets/icons/Trash.vue";
 import Spinner from "../components/atoms/Spinner.vue";
 import PlusCircle from "../assets/icons/PlusCircle.vue";
 import Check from "../assets/icons/Check.vue";
-
-interface IncomeAmount {
-    incomeId: string;
-    amount: number | null;
-}
+import Calendar from "../assets/icons/Calendar.vue";
+import IncomeAmount from "../lib/api/models/IncomeAmount";
+import InfoCircle from "../assets/icons/InfoCircle.vue";
+import Clock from "../assets/icons/Clock.vue";
+import MicroSD from "../assets/icons/MicroSD.vue";
+import ChevronRight from "../assets/icons/ChevronRight.vue";
 
 interface HistoricalRecord {
     id: string;
@@ -46,7 +47,7 @@ const newIncome = ref<Income>({
 });
 
 const currentDate = new Date();
-const currentMonth = currentDate.getMonth();
+const currentMonth = currentDate.getMonth() + 1; // 1-12 para la base de datos
 const currentYear = currentDate.getFullYear();
 
 const monthNames = [
@@ -65,30 +66,77 @@ const monthNames = [
 ];
 
 const currentMonthYear = computed(() => {
-    return `${monthNames[currentMonth]} ${currentYear}`;
+    return `${monthNames[currentMonth - 1]} ${currentYear}`;
 });
 
 const getMonthYearLabel = (month: number, year: number) => {
-    return `${monthNames[month]} ${year}`;
-};
-
-const getIncomeById = (id: string) => {
-    return incomes.value.find((i) => i.id === id);
+    return `${monthNames[month - 1]} ${year}`;
 };
 
 const getAmountForIncome = (incomeId: string) => {
-    const found = incomeAmounts.value.find((a) => a.incomeId === incomeId);
+    const found = incomeAmounts.value.find(
+        (a) => a.income_source_id === incomeId,
+    );
+
     return found?.amount ?? null;
 };
 
 const setAmountForIncome = (incomeId: string, value: string) => {
     const numValue = value === "" ? null : parseFloat(value);
-    const existing = incomeAmounts.value.find((a) => a.incomeId === incomeId);
+    const existing = incomeAmounts.value.find(
+        (a) => a.income_source_id === incomeId,
+    );
+
     if (existing) {
         existing.amount = numValue;
     } else {
-        incomeAmounts.value.push({ incomeId, amount: numValue });
+        incomeAmounts.value.push({
+            income_source_id: incomeId,
+            amount: numValue,
+            year: currentYear,
+            month: currentMonth,
+        });
     }
+};
+
+const buildHistoricalRecords = () => {
+    const groupedByMonth = new Map<
+        string,
+        { totalAmount: number; filledAt: string }
+    >();
+
+    incomeAmounts.value.forEach((incomeAmount) => {
+        const key = `${incomeAmount.year}-${incomeAmount.month}`;
+
+        if (!groupedByMonth.has(key)) {
+            groupedByMonth.set(key, {
+                totalAmount: incomeAmount.amount ?? 0,
+                filledAt: new Date().toISOString(),
+            });
+        } else {
+            const existing = groupedByMonth.get(key)!;
+            existing.totalAmount += incomeAmount.amount ?? 0;
+        }
+    });
+
+    historicalRecords.value = Array.from(groupedByMonth.entries())
+        .map(([key, data]) => {
+            const [year, month] = key.split("-").map(Number) as [
+                number,
+                number,
+            ];
+            return {
+                id: key,
+                month,
+                year,
+                totalAmount: data.totalAmount,
+                filledAt: data.filledAt,
+            };
+        })
+        .sort((a, b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+        });
 };
 
 const fetchData = async () => {
@@ -104,44 +152,9 @@ const fetchData = async () => {
 
         incomes.value = incomes.value.filter((income) => income.is_active);
 
-        // Mock current month amounts
-        incomeAmounts.value = [
-            { incomeId: "1", amount: 15000 },
-            { incomeId: "2", amount: null },
-            { incomeId: "3", amount: 500 },
-        ];
+        incomeAmounts.value = await api.incomeAmount.get(token);
 
-        // Mock historical records
-        historicalRecords.value = [
-            {
-                id: "h1",
-                month: 1,
-                year: 2026,
-                totalAmount: 16200,
-                filledAt: "2026-02-01",
-            },
-            {
-                id: "h2",
-                month: 0,
-                year: 2026,
-                totalAmount: 15800,
-                filledAt: "2026-01-02",
-            },
-            {
-                id: "h3",
-                month: 11,
-                year: 2025,
-                totalAmount: 18500,
-                filledAt: "2025-12-01",
-            },
-            {
-                id: "h4",
-                month: 10,
-                year: 2025,
-                totalAmount: 15000,
-                filledAt: "2025-11-02",
-            },
-        ];
+        buildHistoricalRecords();
     } catch (error) {
         toasterStore.error(
             "Error innesperado.",
@@ -177,7 +190,12 @@ const createIncome = async () => {
         created.id = incomeIdCreated;
         incomes.value.push(created);
 
-        incomeAmounts.value.push({ incomeId: incomeIdCreated, amount: null });
+        incomeAmounts.value.push({
+            income_source_id: incomeIdCreated,
+            amount: null,
+            year: currentYear,
+            month: currentMonth,
+        });
 
         newIncome.value = {
             name: "",
@@ -215,10 +233,6 @@ const removeIncome = async (income: Income) => {
 
         incomes.value = incomes.value.filter((i) => i.id !== income.id);
 
-        incomeAmounts.value = incomeAmounts.value.filter(
-            (a) => a.incomeId !== income.id,
-        );
-
         toasterStore.success(
             "Ingreso eliminado",
             `El ingreso "${income.name}" ha sido eliminado.`,
@@ -233,13 +247,39 @@ const removeIncome = async (income: Income) => {
     }
 };
 
-// Save amounts
 const saveAmounts = async () => {
     isSavingAmounts.value = true;
 
     try {
-        // TODO: Replace with actual API call
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        const token = authStore.getAccessToken();
+
+        if (!token) {
+            throw new Error("No se encontró el token de autenticación");
+        }
+
+        for (const incomeAmount of incomeAmounts.value) {
+            if (incomeAmount.id && incomeAmount.amount !== null) {
+                await api.incomeAmount.update(
+                    incomeAmount.id,
+                    incomeAmount.amount,
+                    token,
+                );
+            } else if (!incomeAmount.id && incomeAmount.amount !== null) {
+                await api.incomeAmount.create(
+                    {
+                        income_source_id: incomeAmount.income_source_id,
+                        amount: incomeAmount.amount,
+                        year: currentYear,
+                        month: currentMonth,
+                    },
+                    token,
+                );
+            }
+        }
+
+        incomeAmounts.value = await api.incomeAmount.get(token);
+
+        buildHistoricalRecords();
 
         toasterStore.success(
             "Montos guardados",
@@ -304,7 +344,9 @@ onMounted(() => {
                                 <CurrencySimbol />
                             </div>
                             <div>
-                                <h2 class="panel__title">Ingresos</h2>
+                                <h2 class="panel__title">
+                                    Fuentes de ingresos
+                                </h2>
                                 <p class="panel__subtitle">
                                     Gestiona tus fuentes de ingreso
                                 </p>
@@ -389,10 +431,10 @@ onMounted(() => {
                     <div v-else-if="!showCreateForm" class="empty-state">
                         <div class="empty-state__icon"><CurrencySimbol /></div>
                         <p class="empty-state__text">
-                            No hay ingresos registrados
+                            No hay fuentes de ingresos registradas
                         </p>
                         <p class="empty-state__sub">
-                            Crea tu primer ingreso para comenzar
+                            Crea tu primera fuente de ingreso para comenzar
                         </p>
                     </div>
 
@@ -400,7 +442,7 @@ onMounted(() => {
                         <div v-if="showCreateForm" class="create-form">
                             <div class="create-form__header">
                                 <PlusCircle />
-                                <span>Nuevo ingreso</span>
+                                <span>Nueva fuente de ingreso</span>
                             </div>
 
                             <div class="create-form__field">
@@ -486,7 +528,7 @@ onMounted(() => {
                                     {{
                                         isCreating
                                             ? "Creando..."
-                                            : "Crear ingreso"
+                                            : "Crear fuente de ingreso"
                                     }}
                                 </button>
                             </div>
@@ -499,7 +541,7 @@ onMounted(() => {
                         @click="showCreateForm = true"
                     >
                         <PlusCircle />
-                        Crear ingreso
+                        Crear fuente de ingreso
                     </button>
 
                     <div class="panel__accent">
@@ -514,32 +556,10 @@ onMounted(() => {
                     <div class="panel__header">
                         <div class="panel__header-left">
                             <div class="panel__icon panel__icon--secondary">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    width="22"
-                                    height="22"
-                                >
-                                    <rect
-                                        x="3"
-                                        y="4"
-                                        width="18"
-                                        height="18"
-                                        rx="2"
-                                        ry="2"
-                                    />
-                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                </svg>
+                                <Calendar />
                             </div>
                             <div>
-                                <h2 class="panel__title">Monto de ingresos</h2>
+                                <h2 class="panel__title">Ingresos</h2>
                                 <p
                                     class="panel__subtitle panel__subtitle--highlight"
                                 >
@@ -554,8 +574,8 @@ onMounted(() => {
                         <div class="amounts-list">
                             <div
                                 v-for="income in incomes"
-                                :key="income.id"
                                 class="amount-row"
+                                :key="income.id"
                             >
                                 <div class="amount-row__label">
                                     <span class="amount-row__name">{{
@@ -564,13 +584,13 @@ onMounted(() => {
                                     <span
                                         class="amount-row__type"
                                         :class="
-                                            income.type === 'fixed'
+                                            income.stability === 'FIXED'
                                                 ? 'amount-row__type--fixed'
                                                 : 'amount-row__type--variable'
                                         "
                                     >
                                         {{
-                                            income.type === "fixed"
+                                            income.stability === "FIXED"
                                                 ? "Fijo"
                                                 : "Variable"
                                         }}
@@ -582,11 +602,11 @@ onMounted(() => {
                                         type="number"
                                         class="amount-row__input"
                                         placeholder="0.00"
-                                        :value="getAmountForIncome(income.id)"
+                                        :value="getAmountForIncome(income.id!)"
                                         @input="
                                             (e) =>
                                                 setAmountForIncome(
-                                                    income.id,
+                                                    income.id!,
                                                     (
                                                         e.target as HTMLInputElement
                                                     ).value,
@@ -602,90 +622,29 @@ onMounted(() => {
                             :disabled="isSavingAmounts"
                             @click="saveAmounts"
                         >
-                            <svg
-                                v-if="!isSavingAmounts"
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                width="18"
-                                height="18"
-                            >
-                                <path
-                                    d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
-                                />
-                                <polyline points="17 21 17 13 7 13 7 21" />
-                                <polyline points="7 3 7 8 15 8" />
-                            </svg>
-                            <svg
-                                v-else
-                                class="spinner"
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                width="18"
-                                height="18"
-                            >
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke-dasharray="30 70"
-                                />
-                            </svg>
+                            <MicroSD v-if="!isSavingAmounts" />
+                            <Spinner v-else />
                             {{
                                 isSavingAmounts
                                     ? "Guardando..."
-                                    : "Guardar montos"
+                                    : "Guardar ingresos"
                             }}
                         </button>
                     </div>
 
                     <!-- No incomes message -->
                     <div v-else class="amounts-empty">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            width="32"
-                            height="32"
-                        >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
+                        <InfoCircle />
                         <p>
-                            Crea tus ingresos primero para poder registrar los
-                            montos
+                            Crea tus fuentes de ingresos primero para poder
+                            registrar los montos
                         </p>
                     </div>
 
                     <!-- Historical Records -->
                     <div class="historical-section">
                         <div class="historical-section__header">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                width="18"
-                                height="18"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <polyline points="12 6 12 12 16 14" />
-                            </svg>
+                            <Clock />
                             <h3>Historico de ingresos</h3>
                         </div>
 
@@ -700,39 +659,7 @@ onMounted(() => {
                             >
                                 <div class="historical-item__left">
                                     <div class="historical-item__icon">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            width="16"
-                                            height="16"
-                                        >
-                                            <rect
-                                                x="3"
-                                                y="4"
-                                                width="18"
-                                                height="18"
-                                                rx="2"
-                                                ry="2"
-                                            />
-                                            <line
-                                                x1="16"
-                                                y1="2"
-                                                x2="16"
-                                                y2="6"
-                                            />
-                                            <line x1="8" y1="2" x2="8" y2="6" />
-                                            <line
-                                                x1="3"
-                                                y1="10"
-                                                x2="21"
-                                                y2="10"
-                                            />
-                                        </svg>
+                                        <Calendar />
                                     </div>
                                     <div class="historical-item__info">
                                         <span class="historical-item__month">{{
@@ -752,22 +679,10 @@ onMounted(() => {
                                     </div>
                                 </div>
                                 <div class="historical-item__right">
-                                    <span class="historical-item__amount">{{
-                                        formatCurrency(record.totalAmount)
-                                    }}</span>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        width="16"
-                                        height="16"
-                                    >
-                                        <polyline points="9 18 15 12 9 6" />
-                                    </svg>
+                                    <span class="historical-item__amount">
+                                        {{ formatCurrency(record.totalAmount) }}
+                                    </span>
+                                    <ChevronRight />
                                 </div>
                             </button>
                         </div>
