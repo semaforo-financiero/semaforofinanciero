@@ -32,15 +32,28 @@ class RiskIndicatorsResponse(BaseModel):
     years_working: Optional[int] = None
 
 
+class DataMiningResponse(BaseModel):
+    model_name: str
+    predicted_risk: str
+    confidence: float = Field(ge=0, le=1)
+    anomaly_score: Optional[float] = None
+    cluster: Optional[int] = None
+
+
 class RiskResponse(BaseModel):
     risk: str
     score: int = Field(ge=0)
     rules: list[RiskRuleResponse]
     recommendations: list[str]
     indicators: RiskIndicatorsResponse
+    data_mining: Optional[DataMiningResponse] = None
 
 
 class FamilyRiskResponse(RiskResponse):
     family_id: str
     family_name: str
     member_count: int = Field(ge=0)
+
+
+
+
