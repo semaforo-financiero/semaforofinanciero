@@ -32,6 +32,9 @@ class DataMiningService:
             "variable_income_sources_ratio": profile["variable_income_sources_ratio"],
             "employment_status": profile["employment_status"],
             "years_working": profile["years_working"],
+            "income_variability": profile["income_variability"],
+            "deficit_ratio": profile["deficit_ratio"],
+            "expense_trend": profile["expense_trend"],
         }
         return pd.DataFrame([row])
 

@@ -49,6 +49,9 @@ class ModelTrainingService:
             "months_analyzed",
             "variable_income_sources_ratio",
             "years_working",
+            "income_variability",
+            "deficit_ratio",
+            "expense_trend",
         ]
 
         categorical_features = [

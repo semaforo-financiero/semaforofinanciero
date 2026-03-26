@@ -43,6 +43,10 @@ class DatasetService:
             "employment_status",
             "years_working",
             "risk_label",
+            "income_variability",
+            "deficit_ratio",
+            "expense_trend",
+
         ]
 
         return df[keep_columns].copy()
