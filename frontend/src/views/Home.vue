@@ -57,159 +57,6 @@ const getProfile = async () => {
     }
 };
 
-const mockPersonalData: RiskAnalysis = {
-    risk: "HIGH",
-    score: 90,
-    rules: [
-        {
-            code: "EXPENSES_EXCEED_INCOME",
-            severity: "HIGH",
-            score: 35,
-            message: "Los egresos superan o igualan los ingresos del periodo.",
-            recommendation:
-                "Reduce gastos no esenciales y renegocia obligaciones fijas o de deuda.",
-        },
-        {
-            code: "NEGATIVE_SAVINGS",
-            severity: "HIGH",
-            score: 25,
-            message: "El ahorro neto del periodo es negativo.",
-            recommendation:
-                "Deten gastos postergables y define una meta minima de ahorro mensual.",
-        },
-        {
-            code: "MODERATE_DEBT_LOAD",
-            severity: "MEDIUM",
-            score: 10,
-            message: "La deuda ocupa una parte relevante del ingreso mensual.",
-            recommendation:
-                "Monitorea los pagos de deuda y define un plan de reduccion progresiva.",
-        },
-        {
-            code: "HIGH_VARIABLE_EXPENSE_RATIO",
-            severity: "MEDIUM",
-            score: 15,
-            message:
-                "Los gastos variables representan una proporcion alta del ingreso.",
-            recommendation:
-                "Controla gastos discrecionales y define topes mensuales para consumos variables.",
-        },
-        {
-            code: "LOW_HISTORY",
-            severity: "LOW",
-            score: 5,
-            message:
-                "El historial financiero analizado aun es corto para inferencias robustas.",
-            recommendation:
-                "Registra al menos tres meses consecutivos de movimientos para mejorar la precision.",
-        },
-    ],
-    recommendations: [
-        "Reduce gastos no esenciales y renegocia obligaciones fijas o de deuda.",
-        "Deten gastos postergables y define una meta minima de ahorro mensual.",
-        "Monitorea los pagos de deuda y define un plan de reduccion progresiva.",
-        "Controla gastos discrecionales y define topes mensuales para consumos variables.",
-        "Registra al menos tres meses consecutivos de movimientos para mejorar la precision.",
-    ],
-    indicators: {
-        analysis_scope: "USER",
-        income: 50000,
-        expense: 52000,
-        savings: -2000,
-        expense_ratio: 1.04,
-        debt_expense_amount: 15000,
-        debt_ratio: 0.3,
-        fixed_expense_amount: 16000,
-        fixed_expense_ratio: 0.32,
-        variable_expense_amount: 36000,
-        variable_expense_ratio: 0.72,
-        savings_ratio: -0.04,
-        months_analyzed: 2,
-        variable_income_sources_ratio: 0.5,
-        employment_status: "SELF_EMPLOYED",
-        years_working: 15,
-    },
-    data_mining: null,
-};
-
-const mockFamilyData: RiskAnalysis = {
-    risk: "MEDIUM",
-    score: 55,
-    rules: [
-        {
-            code: "MODERATE_DEBT_LOAD",
-            severity: "MEDIUM",
-            score: 15,
-            message:
-                "La deuda familiar ocupa una parte relevante del ingreso combinado.",
-            recommendation:
-                "Coordinen los pagos de deuda y definan un plan conjunto de reduccion.",
-        },
-        {
-            code: "VARIABLE_INCOME_DEPENDENCY",
-            severity: "MEDIUM",
-            score: 12,
-            message:
-                "Una parte significativa del ingreso familiar proviene de fuentes variables.",
-            recommendation:
-                "Diversifiquen las fuentes de ingreso y mantengan un fondo de emergencia mayor.",
-        },
-        {
-            code: "HIGH_FIXED_EXPENSES",
-            severity: "MEDIUM",
-            score: 10,
-            message:
-                "Los gastos fijos representan una proporcion elevada del ingreso familiar.",
-            recommendation:
-                "Revisen contratos y servicios para identificar oportunidades de ahorro.",
-        },
-        {
-            code: "MODERATE_SAVINGS",
-            severity: "LOW",
-            score: 8,
-            message:
-                "El nivel de ahorro familiar es aceptable pero puede mejorarse.",
-            recommendation:
-                "Establezcan una meta de ahorro del 15-20% del ingreso combinado.",
-        },
-        {
-            code: "LOW_HISTORY",
-            severity: "LOW",
-            score: 10,
-            message:
-                "El historial financiero familiar aun es corto para inferencias robustas.",
-            recommendation:
-                "Registren al menos tres meses de movimientos familiares para mayor precision.",
-        },
-    ],
-    recommendations: [
-        "Coordinen los pagos de deuda y definan un plan conjunto de reduccion.",
-        "Diversifiquen las fuentes de ingreso y mantengan un fondo de emergencia mayor.",
-        "Revisen contratos y servicios para identificar oportunidades de ahorro.",
-        "Establezcan una meta de ahorro del 15-20% del ingreso combinado.",
-        "Registren al menos tres meses de movimientos familiares para mayor precision.",
-    ],
-    indicators: {
-        analysis_scope: "FAMILY",
-        income: 85000,
-        expense: 72000,
-        savings: 13000,
-        expense_ratio: 0.85,
-        debt_expense_amount: 22000,
-        debt_ratio: 0.26,
-        fixed_expense_amount: 35000,
-        fixed_expense_ratio: 0.41,
-        variable_expense_amount: 37000,
-        variable_expense_ratio: 0.44,
-        savings_ratio: 0.15,
-        months_analyzed: 3,
-        variable_income_sources_ratio: 0.35,
-        employment_status: "MIXED",
-        years_working: 12,
-    },
-    data_mining: null,
-};
-
 const riskColor = computed(() => {
     if (!analysis.value) {
         return "#6b7280";
@@ -281,7 +128,9 @@ const expenseBreakdown = computed(() => {
 });
 
 const totalExpenseBreakdown = computed(() => {
-    return expenseBreakdown.value.reduce((sum, item) => sum + item.value, 0);
+    return expenseBreakdown.value
+        .slice(0, -1)
+        .reduce((sum, item) => sum + item.value, 0);
 });
 
 const viewTitle = computed(() => {
@@ -685,17 +534,17 @@ onMounted(() => {
                     <div class="score-scale">
                         <div class="score-scale__item score-scale__item--low">
                             <span class="score-scale__dot"></span>
-                            <span>0-39 Bajo</span>
+                            <span>0-29 Bajo</span>
                         </div>
                         <div
                             class="score-scale__item score-scale__item--medium"
                         >
                             <span class="score-scale__dot"></span>
-                            <span>40-69 Medio</span>
+                            <span>30-59 Medio</span>
                         </div>
                         <div class="score-scale__item score-scale__item--high">
                             <span class="score-scale__dot"></span>
-                            <span>70-100 Alto</span>
+                            <span>+60 Alto</span>
                         </div>
                     </div>
                 </div>
@@ -1230,7 +1079,7 @@ onMounted(() => {
                         <div class="profile-info__item">
                             <Clock />
                             <span
-                                >{{ analysis.indicators.years_working }} anos de
+                                >{{ analysis.indicators.years_working }} años de
                                 experiencia</span
                             >
                         </div>
