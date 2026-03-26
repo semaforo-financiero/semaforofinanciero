@@ -51,6 +51,8 @@ header {
     color: var(--secondary-color-dark);
     background-color: var(--color-white);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+
+    z-index: 9999;
 }
 
 nav {
