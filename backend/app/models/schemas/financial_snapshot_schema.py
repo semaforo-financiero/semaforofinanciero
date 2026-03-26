@@ -25,6 +25,9 @@ class FinancialSnapshotCreate(BaseModel):
     variable_income_sources_ratio: float
     employment_status: str
     years_working: Optional[int] = None
+    income_variability: float
+    deficit_ratio: float
+    expense_trend: float
 
     expert_risk: str
     expert_score: int

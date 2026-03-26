@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 from supabase import Client
+import numpy as np
 
 from app.models.schemas.financial_snapshot_schema import FinancialSnapshotCreate
 from app.repositories.expense_repository import ExpenseRepository
@@ -54,6 +55,7 @@ class RiskService:
         debt_expense_amount = 0.0
         fixed_expense_amount = 0.0
         variable_expense_amount = 0.0
+        monthly_data = {}
 
         unique_income_sources = {
             income.get("income_source_id")
@@ -79,10 +81,19 @@ class RiskService:
             if expense.get("year") is not None and expense.get("month") is not None
         }
 
+        for income in incomes:
+            key = (income.get("year"), income.get("month"))
+            monthly_data.setdefault(key, {"income": 0, "expense": 0})
+            monthly_data[key]["income"] += float(income.get("amount") or 0)
+
         for expense in expenses:
+            key = (expense.get("year"), expense.get("month"))
+            monthly_data.setdefault(key, {"income": 0, "expense": 0})
             amount = float(expense.get("amount") or 0)
+            monthly_data[key]["expense"] += amount
             source = self._get_nested_source(expense, "expense_sources")
             stability = str(source.get("stability") or "").upper()
+
 
             if bool(source.get("is_debt")):
                 debt_expense_amount += amount
@@ -128,6 +139,26 @@ class RiskService:
             employment_status = employment_statuses[0]
 
         years_working = min(years_working_values) if years_working_values else None
+        incomes_list = [v["income"] for v in monthly_data.values()]
+        
+        income_variability = (
+            np.std(incomes_list) / np.mean(incomes_list)
+            if len(incomes_list) > 1 and np.mean(incomes_list) > 0 else 0
+        )
+        
+        months_with_deficit = sum(
+            1 for v in monthly_data.values() if v["expense"] > v["income"]
+        )
+        deficit_ratio = (
+            months_with_deficit / len(monthly_data)
+            if monthly_data else 0
+        )
+
+        expenses_list = [v["expense"] for v in monthly_data.values()]
+        expense_trend = (
+            expenses_list[-1] - expenses_list[0]
+            if len(expenses_list) > 1 else 0
+        )
 
         return {
             "analysis_scope": analysis_scope,
@@ -146,6 +177,9 @@ class RiskService:
             "variable_income_sources_ratio": round(variable_income_sources_ratio, 4),
             "employment_status": employment_status,
             "years_working": years_working,
+            "income_variability": round(income_variability, 4),
+            "deficit_ratio": round(deficit_ratio, 4),
+            "expense_trend": round(expense_trend, 2),
         }
 
     def _save_snapshot(
@@ -174,6 +208,9 @@ class RiskService:
             variable_income_sources_ratio=profile["variable_income_sources_ratio"],
             employment_status=profile["employment_status"],
             years_working=profile["years_working"],
+            income_variability=profile["income_variability"],
+            deficit_ratio=profile["deficit_ratio"],
+            expense_trend=profile["expense_trend"],
             expert_risk=expert_result["risk"],
             expert_score=expert_result["score"],
         )
