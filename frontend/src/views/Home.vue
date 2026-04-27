@@ -135,8 +135,8 @@ const totalExpenseBreakdown = computed(() => {
 
 const viewTitle = computed(() => {
     return viewMode.value === "personal"
-        ? "Analisis Personal"
-        : "Analisis Familiar";
+        ? "Análisis Personal"
+        : "Análisis Familiar";
 });
 
 const formatCurrency = (value: number) => {
@@ -224,7 +224,7 @@ onMounted(() => {
                     <House />
                 </div>
                 <div>
-                    <h1 class="dashboard-header__title">Semaforo Financiero</h1>
+                    <h1 class="dashboard-header__title">Semáforo Financiero</h1>
                     <p class="dashboard-header__subtitle">{{ viewTitle }}</p>
                 </div>
             </div>
@@ -512,11 +512,11 @@ onMounted(() => {
                             </div>
                             <p class="score-info__text">
                                 <template v-if="viewMode === 'personal'">
-                                    Tu puntuacion personal indica un nivel de
+                                    Tu puntuación personal indica un nivel de
                                     riesgo
                                 </template>
                                 <template v-else>
-                                    La puntuacion familiar indica un nivel de
+                                    La puntuación familiar indica un nivel de
                                     riesgo
                                 </template>
                                 <strong :style="{ color: riskColor }">{{
@@ -760,7 +760,7 @@ onMounted(() => {
                             <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
                             <path d="M22 12A10 10 0 0 0 12 2v10z" />
                         </svg>
-                        <h2>Distribucion de Egresos</h2>
+                        <h2>Distribución de Egresos</h2>
                     </div>
 
                     <div class="donut-chart">
